@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    @apply text-gray-900 bg-white;
+    font-family: Inter, system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background-color: #1A6B3C;
+    color: #fff;
+    @apply px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: #155633;
+  }
+  .btn-secondary {
+    border: 2px solid #1A6B3C;
+    color: #1A6B3C;
+    @apply px-6 py-3 rounded-lg font-semibold transition-colors;
+  }
+  .btn-secondary:hover {
+    background-color: #1A6B3C;
+    color: #fff;
+  }
+  .btn-accent {
+    background-color: #F4A619;
+    color: #fff;
+    @apply px-6 py-3 rounded-lg font-semibold transition-colors;
+  }
+  .btn-accent:hover {
+    background-color: #D18C0C;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden;
+  }
+  .input {
+    @apply w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-transparent;
+    --tw-ring-color: #1A6B3C;
+  }
+  .input:focus {
+    outline: none;
+    border-color: #1A6B3C;
+    box-shadow: 0 0 0 2px rgba(26,107,60,0.2);
+  }
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+}

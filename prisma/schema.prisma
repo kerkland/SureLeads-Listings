@@ -1,0 +1,502 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  AGENT
+  CLIENT
+  ADMIN
+}
+
+enum SubscriptionTier {
+  STARTER
+  PROFESSIONAL
+  AGENCY
+}
+
+enum PropertyType {
+  FLAT
+  DUPLEX
+  ROOM
+  BUNGALOW
+  TERRACED
+}
+
+enum ListingStatus {
+  AVAILABLE
+  PENDING_RECONFIRMATION // 5-day warning window before expiry
+  HIDDEN                 // system-initiated after missed reconfirmation
+  PAUSED                 // agent-initiated pause
+  RENTED
+  DELETED
+}
+
+enum ListingTier {
+  BASIC
+  VERIFIED
+}
+
+enum CrossPostStatus {
+  OPEN
+  AGENT_A_WINS
+  AGENT_B_WINS
+  BOTH_PAUSED
+  DISMISSED
+}
+
+enum DetectionMethod {
+  ADDRESS_MATCH
+  PHOTO_HASH
+  BOTH
+}
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  EMAIL
+  IN_APP
+}
+
+enum InspectionStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum VideoWalkthroughStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum AdminActionType {
+  APPROVE_VIDEO_WALKTHROUGH
+  REJECT_VIDEO_WALKTHROUGH
+  SUSPEND_AGENT
+  REINSTATE_AGENT
+  FLAG_LISTING
+  UNFLAG_LISTING
+  DISMISS_REVIEW
+  RESOLVE_COMPLAINT
+  FORCE_HIDE_LISTING
+  APPROVE_AGENT_VERIFICATION
+}
+
+enum CredibilityTier {
+  UNRATED  // 0–99
+  BRONZE   // 100–299
+  SILVER   // 300–549
+  GOLD     // 550–799
+  PLATINUM // 800–1000
+}
+
+enum ComplaintStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  phone        String    @unique
+  email        String?
+  fullName     String
+  role         Role      @default(CLIENT)
+  passwordHash String
+  isVerified   Boolean   @default(false)
+  isSuspended  Boolean   @default(false)
+  suspendedAt  DateTime?
+  suspendedBy  String? // adminUserId
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  agentProfile  AgentProfile?
+  listings      Listing[]      @relation("AgentListings")
+  reviews       Review[]       @relation("ReviewerReviews")
+  notifications Notification[]
+  inspections   Inspection[]   @relation("ClientInspections")
+  complaints    Complaint[]    @relation("UserComplaints")
+  adminActions  AdminAction[]  @relation("AdminActions")
+
+  @@index([phone])
+  @@index([email])
+  @@map("users")
+}
+
+model AgentProfile {
+  id                    String           @id @default(uuid())
+  userId                String           @unique
+  user                  User             @relation(fields: [userId], references: [id])
+  cacNumber             String?
+  agencyName            String?
+  primaryCity           String // renamed from city
+  servedCities          String[]         @default([])
+  bio                   String?
+  profilePhoto          String?
+
+  // Legacy reputation (kept for backward compat during transition)
+  reputationScore       Int              @default(500)
+
+  // Structured credibility score (SureLeads)
+  credibilityScore      Int              @default(0)
+  credibilityTier       CredibilityTier  @default(UNRATED)
+  credibilityUpdatedAt  DateTime?
+
+  // Score component fields (stored for fast recalculation)
+  scoreReviewAvg        Float            @default(0)
+  scoreReconfirmationRate Float          @default(1.0)
+  scoreResponseRate     Float            @default(0)
+  scoreComplaintsCount  Int              @default(0)
+  scoreAccountAgeDays   Int              @default(0)
+
+  // Inspection response tracking
+  totalInspectionRequests Int            @default(0)
+  respondedInspections  Int              @default(0)
+
+  subscriptionTier      SubscriptionTier @default(STARTER)
+  subscriptionExpiresAt DateTime?
+  isVerifiedBadge       Boolean          @default(false)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  bankAccounts         AgentBankAccount[]
+  reputationLogs       ReputationLog[]
+  credibilityLogs      CredibilityLog[]
+  reviewsReceived      Review[]           @relation("AgentReviews")
+  inspectionsAsAgent   Inspection[]
+  complaints           Complaint[]        @relation("AgentComplaints")
+  adminActionsReceived AdminAction[]      @relation("AgentAdminActions")
+
+  @@index([userId])
+  @@index([primaryCity])
+  @@index([credibilityScore])
+  @@index([credibilityTier])
+  @@index([primaryCity, credibilityTier])
+  @@map("agent_profiles")
+}
+
+model AgentBankAccount {
+  id                    String       @id @default(uuid())
+  agentId               String
+  agent                 AgentProfile @relation(fields: [agentId], references: [id])
+  bankName              String
+  bankCode              String
+  accountNumber         String
+  accountName           String
+  paystackRecipientCode String?
+  isDefault             Boolean      @default(false)
+  createdAt             DateTime     @default(now())
+
+  @@index([agentId])
+  @@map("agent_bank_accounts")
+}
+
+model Listing {
+  id                 String        @id @default(uuid())
+  agentId            String
+  agent              User          @relation("AgentListings", fields: [agentId], references: [id])
+  title              String
+  description        String
+  propertyType       PropertyType
+  bedrooms           Int
+  bathrooms          Int
+  addressLine        String
+  area               String
+  city               String
+  latitude           Float?
+  longitude          Float?
+  rentPerYear        BigInt // stored in kobo
+  inspectionFee      BigInt // stored in kobo
+  photos             String[]
+  photoHashes        String[]
+  status             ListingStatus @default(AVAILABLE)
+  tier               ListingTier   @default(BASIC)
+  isCrossPostFlagged Boolean       @default(false)
+  isAdminFlagged     Boolean       @default(false)
+  viewsCount         Int           @default(0)
+
+  // Reconfirmation tracking (VERIFIED tier only)
+  lastReconfirmedAt         DateTime?
+  nextReconfirmationDue     DateTime?
+  reconfirmationMissedCount Int       @default(0)
+  hiddenAt                  DateTime?
+  pendingReconfirmationAt   DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  reviews              Review[]
+  crossPostFlagsA      CrossPostingFlag[]    @relation("CrossPostListingA")
+  crossPostFlagsB      CrossPostingFlag[]    @relation("CrossPostListingB")
+  videoWalkthrough     VideoWalkthrough?
+  reconfirmationRecords ReconfirmationRecord[]
+  inspections          Inspection[]
+  adminActions         AdminAction[]         @relation("ListingAdminActions")
+  complaints           Complaint[]
+
+  @@index([city])
+  @@index([area])
+  @@index([status])
+  @@index([agentId])
+  @@index([propertyType])
+  @@index([tier])
+  @@index([city, tier, status])
+  @@index([area, tier, status])
+  @@index([nextReconfirmationDue])
+  @@index([agentId, status])
+  @@map("listings")
+}
+
+model Review {
+  id              String       @id @default(uuid())
+  inspectionFeeId String? // preserved for Phase 2 escrow re-integration
+  inspectionId    String?      @unique // links to inspection that triggered this review
+  reviewerId      String
+  reviewer        User         @relation("ReviewerReviews", fields: [reviewerId], references: [id])
+  agentId         String
+  agent           AgentProfile @relation("AgentReviews", fields: [agentId], references: [id])
+  listingId       String
+  listing         Listing      @relation(fields: [listingId], references: [id])
+  rating          Int // 1–5
+  body            String?
+  isFlagged       Boolean      @default(false)
+  flaggedReason   String?
+  flaggedAt       DateTime?
+  flaggedBy       String? // adminUserId
+  createdAt       DateTime     @default(now())
+
+  inspection  Inspection?  @relation("InspectionReview", fields: [inspectionId], references: [id])
+  adminAction AdminAction? @relation(fields: [id], references: [targetReviewId])
+
+  @@index([agentId])
+  @@index([listingId])
+  @@map("reviews")
+}
+
+model CrossPostingFlag {
+  id              String          @id @default(uuid())
+  listingAId      String
+  listingA        Listing         @relation("CrossPostListingA", fields: [listingAId], references: [id])
+  listingBId      String
+  listingB        Listing         @relation("CrossPostListingB", fields: [listingBId], references: [id])
+  similarityScore Float
+  detectionMethod DetectionMethod
+  status          CrossPostStatus @default(OPEN)
+  mandateAUrl     String?
+  mandateBUrl     String?
+  resolvedAt      DateTime?
+  deadlineAt      DateTime
+  createdAt       DateTime        @default(now())
+
+  @@index([listingAId])
+  @@index([listingBId])
+  @@index([status])
+  @@map("cross_posting_flags")
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  body      String
+  channel   NotificationChannel
+  isRead    Boolean             @default(false)
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model ReputationLog {
+  id        String       @id @default(uuid())
+  agentId   String
+  agent     AgentProfile @relation(fields: [agentId], references: [id])
+  event     String
+  delta     Int
+  metadata  Json?
+  createdAt DateTime     @default(now())
+
+  @@index([agentId])
+  @@map("reputation_logs")
+}
+
+// ─── SureLeads New Models ─────────────────────────────────────────────────────
+
+model ReconfirmationRecord {
+  id          String   @id @default(uuid())
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id])
+  confirmedAt DateTime @default(now())
+  dueAt       DateTime // deadline that was being confirmed against
+  wasOnTime   Boolean // true if confirmedAt <= dueAt
+  method      String   @default("AGENT_ACTION") // AGENT_ACTION | AUTO_MISSED
+  agentId     String // denormalized for fast credibility recalc
+
+  @@index([listingId])
+  @@index([agentId])
+  @@index([confirmedAt])
+  @@map("reconfirmation_records")
+}
+
+model VideoWalkthrough {
+  id                 String                 @id @default(uuid())
+  listingId          String                 @unique
+  listing            Listing                @relation(fields: [listingId], references: [id])
+  cloudinaryUrl      String
+  cloudinaryPublicId String
+  durationSeconds    Int?
+  status             VideoWalkthroughStatus @default(PENDING_REVIEW)
+  reviewedAt         DateTime?
+  reviewedBy         String? // adminUserId
+  rejectionReason    String?
+  uploadedAt         DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([status])
+  @@map("video_walkthroughs")
+}
+
+model AreaPriceIndex {
+  id                 String       @id @default(uuid())
+  city               String
+  area               String
+  propertyType       PropertyType
+  bedrooms           Int // -1 = aggregated across all bedroom counts
+  medianRentPerYear  BigInt
+  p25RentPerYear     BigInt
+  p75RentPerYear     BigInt
+  minRentPerYear     BigInt
+  maxRentPerYear     BigInt
+  listingCount       Int
+  confidenceScore    Float // 0.0–1.0: min(1.0, listingCount / 20)
+  isPublished        Boolean      @default(false) // false if listingCount < 5
+  calculatedAt       DateTime
+  nextCalculationDue DateTime
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@unique([city, area, propertyType, bedrooms])
+  @@index([city, area])
+  @@index([city, propertyType])
+  @@index([isPublished])
+  @@map("area_price_indices")
+}
+
+model Inspection {
+  id                String           @id @default(uuid())
+  listingId         String
+  listing           Listing          @relation(fields: [listingId], references: [id])
+  clientId          String
+  client            User             @relation("ClientInspections", fields: [clientId], references: [id])
+  agentId           String
+  agent             AgentProfile     @relation(fields: [agentId], references: [id])
+  status            InspectionStatus @default(REQUESTED)
+  proposedDate      DateTime?
+  confirmedDate     DateTime?
+  inspectionFeeKobo BigInt // copied from Listing.inspectionFee at booking time
+  feePaidAt         DateTime?
+  feeRefundedAt     DateTime?
+  notes             String?
+  agentNotes        String?
+  requestedAt       DateTime         @default(now())
+  respondedAt       DateTime? // when agent first responded
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  cancelledBy       String? // userId
+
+  review    Review?   @relation("InspectionReview")
+  complaint Complaint?
+
+  @@index([listingId])
+  @@index([clientId])
+  @@index([agentId])
+  @@index([status])
+  @@index([requestedAt])
+  @@map("inspections")
+}
+
+model AdminAction {
+  id              String          @id @default(uuid())
+  adminId         String
+  admin           User            @relation("AdminActions", fields: [adminId], references: [id])
+  actionType      AdminActionType
+  targetListingId String?
+  targetListing   Listing?        @relation("ListingAdminActions", fields: [targetListingId], references: [id])
+  targetAgentId   String?
+  targetAgent     AgentProfile?   @relation("AgentAdminActions", fields: [targetAgentId], references: [id])
+  targetReviewId  String?
+  targetReview    Review?         @relation(fields: [targetReviewId], references: [id])
+  targetComplaintId String?
+  targetComplaint   Complaint?    @relation(fields: [targetComplaintId], references: [id])
+  reason          String?
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+
+  @@index([adminId])
+  @@index([targetAgentId])
+  @@index([targetListingId])
+  @@index([actionType])
+  @@index([createdAt])
+  @@map("admin_actions")
+}
+
+model Complaint {
+  id            String          @id @default(uuid())
+  complainantId String
+  complainant   User            @relation("UserComplaints", fields: [complainantId], references: [id])
+  agentId       String
+  agent         AgentProfile    @relation("AgentComplaints", fields: [agentId], references: [id])
+  listingId     String?
+  listing       Listing?        @relation(fields: [listingId], references: [id])
+  inspectionId  String?         @unique
+  inspection    Inspection?     @relation(fields: [inspectionId], references: [id])
+  category      String // NO_SHOW | MISREPRESENTATION | FRAUD
+  description   String
+  status        ComplaintStatus @default(OPEN)
+  resolution    String?
+  resolvedAt    DateTime?
+  resolvedBy    String? // adminUserId
+  adminActions  AdminAction[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([agentId])
+  @@index([complainantId])
+  @@index([status])
+  @@map("complaints")
+}
+
+model CredibilityLog {
+  id           String       @id @default(uuid())
+  agentId      String
+  agent        AgentProfile @relation(fields: [agentId], references: [id])
+  event        String
+  componentKey String // review | reconfirmation | response_rate | complaint | subscription | account
+  delta        Int
+  oldScore     Int
+  newScore     Int
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+
+  @@index([agentId])
+  @@index([createdAt])
+  @@map("credibility_logs")
+}
