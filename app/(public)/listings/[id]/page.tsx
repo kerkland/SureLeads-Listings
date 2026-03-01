@@ -1,181 +1,323 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import BookInspection from './BookInspection';
+import BookInspectionForm from '@/components/BookInspectionForm';
+import TierBadge from '@/components/listings/TierBadge';
+import CredibilityBadge from '@/components/listings/CredibilityBadge';
+import PriceInsightWidget from '@/components/listings/PriceInsightWidget';
+import VideoWalkthroughPlayer from '@/components/listings/VideoWalkthroughPlayer';
 import { MOCK_LISTINGS } from '@/lib/mockData';
+import type { CredibilityTier, PropertyType } from '@/types';
 
-interface Props {
-  params: { id: string };
-}
+interface Props { params: { id: string } }
 
 async function fetchListing(id: string) {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/listings/${id}`, {
-      cache: 'no-store',
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/listings/${id}`,
+      { cache: 'no-store' },
+    );
     if (res.ok) {
       const json = await res.json();
       if (json.data) return json.data;
     }
-  } catch {
-    // DB not available — fall through to mock data
-  }
+  } catch { /* fall through */ }
 
-  // Fall back to mock data (works for preview without a DB)
-  const mock = MOCK_LISTINGS.find((l) => l.id === id) ?? MOCK_LISTINGS[0];
-  return mock;
+  return MOCK_LISTINGS.find((l) => l.id === id) ?? MOCK_LISTINGS[0];
 }
 
 function formatNaira(koboStr: string) {
-  return `₦${(Number(koboStr) / 100).toLocaleString('en-NG')}`;
+  const n = Number(koboStr) / 100;
+  if (n >= 1_000_000) return `\u20A6${(n / 1_000_000).toFixed(2)}M`;
+  return `\u20A6${n.toLocaleString('en-NG')}`;
 }
 
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg
-          key={s}
-          className={`w-4 h-4 ${s <= rating ? 'text-accent' : 'text-gray-200'}`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.967a1 1 0 00.95.69h4.175c.969 0 1.371 1.24.588 1.81l-3.38 2.455a1 1 0 00-.364 1.118l1.286 3.966c.3.921-.755 1.688-1.54 1.118L10 14.347l-3.352 2.704c-.785.57-1.84-.197-1.54-1.118l1.286-3.966a1 1 0 00-.364-1.118L2.65 9.394c-.783-.57-.38-1.81.588-1.81h4.175a1 1 0 00.95-.69l1.286-3.967z" />
-        </svg>
-      ))}
-    </div>
-  );
+function daysAgo(dateStr?: string | null): string | null {
+  if (!dateStr) return null;
+  const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+  if (d <= 0)  return 'Reconfirmed today';
+  if (d === 1) return 'Reconfirmed 1 day ago';
+  if (d <= 7)  return `Reconfirmed ${d} days ago`;
+  return null;
 }
+
+const PT_LABEL: Record<string, string> = {
+  FLAT: 'Flat', HOUSE: 'House', DUPLEX: 'Duplex',
+  BUNGALOW: 'Bungalow', ROOM_SELF_CONTAIN: 'Room (self-contain)',
+  STUDIO: 'Studio', OFFICE: 'Office', SHOP: 'Shop',
+  WAREHOUSE: 'Warehouse', LAND: 'Land',
+};
 
 export default async function ListingDetailPage({ params }: Props) {
   const listing = await fetchListing(params.id);
   if (!listing) notFound();
 
-  const agent = listing.agent;
-  const agentProfile = agent?.agentProfile;
+  const agent   = listing.agent;
+  const ap      = agent?.agentProfile;
+  const isVerified = listing.tier === 'VERIFIED';
+  const reconfirmLabel = daysAgo(listing.lastReconfirmedAt);
+  const hasVideo = listing.videoWalkthrough?.cloudinaryUrl && listing.videoWalkthrough.status === 'APPROVED';
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <Link href="/listings" className="text-sm text-brand hover:underline mb-6 inline-flex items-center gap-1">
-        ← Back to listings
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      {/* Breadcrumb */}
+      <Link
+        href="/listings"
+        className="inline-flex items-center gap-1.5 text-sm text-sl-slate-500
+                   hover:text-sl-slate-900 mb-6 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        All properties
       </Link>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
-        {/* Left column */}
-        <div className="lg:col-span-2">
+      {/* Verified listing banner */}
+      {isVerified && (
+        <div className="flex items-center gap-3 bg-sl-green-50 border border-sl-green-200
+                        rounded-xl px-4 py-3 mb-6">
+          <svg className="w-4 h-4 text-sl-green-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sl-green-800">
+              Verified listing
+              {reconfirmLabel && (
+                <span className="font-normal text-sl-green-600"> · {reconfirmLabel}</span>
+              )}
+            </p>
+            <p className="text-xs text-sl-green-600 mt-0.5">
+              Agent reconfirms availability weekly. Auto-removed if missed.
+            </p>
+          </div>
+          <TierBadge tier="VERIFIED" />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        {/* ── Left column ───────────────────────────────────── */}
+        <div className="lg:col-span-2 space-y-5">
+
           {/* Photo gallery */}
-          <div className="rounded-2xl overflow-hidden bg-gray-200 mb-6">
+          <div className="rounded-2xl overflow-hidden border border-sl-slate-200 bg-sl-slate-100">
             {listing.photos?.length > 0 ? (
-              <div className="grid grid-cols-2 gap-1">
+              <div className={`grid gap-0.5 ${listing.photos.length === 1 ? '' : 'grid-cols-2'}`}>
                 {listing.photos.slice(0, 4).map((photo: string, i: number) => (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     key={i}
                     src={photo}
-                    alt={`${listing.title} photo ${i + 1}`}
-                    className={`object-cover w-full ${i === 0 ? 'h-64 col-span-2' : 'h-32'}`}
+                    alt={`${listing.title} — photo ${i + 1}`}
+                    className={`object-cover w-full ${
+                      i === 0 ? 'h-72' + (listing.photos.length > 1 ? ' col-span-2' : '') : 'h-40'
+                    }`}
                   />
                 ))}
               </div>
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-400">No photos</div>
+              <div className="h-64 flex items-center justify-center text-sl-slate-400">
+                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                        d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                </svg>
+              </div>
             )}
           </div>
+
+          {/* Video walkthrough */}
+          {hasVideo && (
+            <div className="border border-sl-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-sl-slate-200 flex items-center gap-2">
+                <svg className="w-4 h-4 text-sl-green-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm12.553.106A1 1 0 0014 7v6a1 1 0 00.553.894l2 1A1 1 0 0018 14V6a1 1 0 00-1.447-.894l-2 1z" />
+                </svg>
+                <p className="text-sm font-medium text-sl-slate-900">Video walkthrough</p>
+              </div>
+              <VideoWalkthroughPlayer url={listing.videoWalkthrough.cloudinaryUrl} />
+            </div>
+          )}
 
           {/* Listing details */}
-          <div className="card p-6 mb-6">
-            <div className="flex items-start justify-between mb-4">
+          <div className="border border-sl-slate-200 rounded-2xl p-6">
+            <div className="flex items-start justify-between gap-3 mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">{listing.title}</h1>
-                <p className="text-gray-500">
-                  {listing.area}, {listing.city}
-                </p>
+                <h1 className="text-xl font-bold text-sl-slate-900 mb-1">{listing.title}</h1>
+                <p className="text-sm text-sl-slate-500">{listing.area}, {listing.city}</p>
               </div>
               {listing.isCrossPostFlagged && (
-                <span className="bg-red-100 text-red-700 text-xs font-medium px-3 py-1 rounded-full">
-                  ⚠ Flagged
-                </span>
+                <span className="badge badge-red flex-shrink-0">Flagged</span>
               )}
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-gray-600 mb-6">
-              <span className="bg-gray-100 px-3 py-1 rounded-full">{listing.propertyType}</span>
-              <span>🛏 {listing.bedrooms} bedrooms</span>
-              <span>🚿 {listing.bathrooms} bathrooms</span>
+            {/* Quick specs */}
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              <span className="badge badge-slate">
+                {PT_LABEL[listing.propertyType] ?? listing.propertyType}
+              </span>
+              <span className="badge badge-slate">{listing.bedrooms} bed{listing.bedrooms !== 1 ? 's' : ''}</span>
+              <span className="badge badge-slate">{listing.bathrooms} bath{listing.bathrooms !== 1 ? 's' : ''}</span>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-xl mb-6">
-              <p className="text-xs text-gray-500 mb-1">Annual Rent</p>
-              <p className="text-xl font-bold text-brand">{formatNaira(listing.rentPerYear)}</p>
-            </div>
-
-            <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
-            <p className="text-gray-600 text-sm leading-relaxed">{listing.description}</p>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="card p-4 text-center">
-              <p className="text-2xl font-bold text-brand">{listing.viewsCount ?? 0}</p>
-              <p className="text-xs text-gray-500 mt-1">Views</p>
-            </div>
-            <div className="card p-4 text-center">
-              <p className="text-2xl font-bold text-brand">
-                {listing.avgRating ? listing.avgRating.toFixed(1) : '—'}
+            {/* Price block */}
+            <div className="bg-sl-slate-50 border border-sl-slate-200 rounded-xl px-5 py-4 mb-5">
+              <p className="text-xs text-sl-slate-500 mb-1">Annual rent</p>
+              <p className="text-2xl font-bold text-sl-slate-900">
+                {formatNaira(listing.rentPerYear)}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Avg Rating</p>
             </div>
+
+            {/* Description */}
+            {listing.description && (
+              <>
+                <h2 className="text-sm font-semibold text-sl-slate-900 mb-2">About this property</h2>
+                <p className="text-sm text-sl-slate-600 leading-relaxed">{listing.description}</p>
+              </>
+            )}
           </div>
+
+          {/* Price insights widget (client-side, auth-gated) */}
+          {isVerified && listing.propertyType && (
+            <PriceInsightWidget
+              city={listing.city}
+              area={listing.area}
+              propertyType={listing.propertyType as PropertyType}
+              bedrooms={listing.bedrooms}
+              currentRent={Number(listing.rentPerYear)}
+            />
+          )}
         </div>
 
-        {/* Right column — agent card + CTA */}
+        {/* ── Right column ──────────────────────────────────── */}
         <div className="space-y-4">
+
           {/* Agent card */}
-          <div className="card p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">About the Agent</h3>
+          <div className="border border-sl-slate-200 rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-sl-slate-900 mb-4">Agent</h3>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-brand font-bold text-lg">
+              <div className="w-10 h-10 rounded-full bg-sl-green-100 flex items-center
+                              justify-center text-sl-green-700 font-bold text-base flex-shrink-0">
                 {agent?.fullName?.[0] ?? 'A'}
               </div>
-              <div>
-                <p className="font-semibold text-gray-900">{agentProfile?.agencyName ?? agent?.fullName}</p>
-                <p className="text-sm text-gray-500">{agentProfile?.city}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-sl-slate-900 truncate">
+                  {ap?.agencyName ?? agent?.fullName}
+                </p>
+                {ap?.isVerifiedBadge && (
+                  <span className="badge badge-green mt-0.5">
+                    <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Verified agent
+                  </span>
+                )}
               </div>
-              {agentProfile?.isVerifiedBadge && (
-                <span className="ml-auto bg-brand-50 text-brand text-xs px-2 py-0.5 rounded-full font-medium">
-                  ✓ Verified
-                </span>
+            </div>
+
+            {/* Credibility score */}
+            {ap?.credibilityScore !== undefined && ap.credibilityTier && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-sl-slate-500">Credibility score</span>
+                  <CredibilityBadge
+                    score={ap.credibilityScore}
+                    tier={ap.credibilityTier as CredibilityTier}
+                  />
+                </div>
+                <div className="h-1.5 bg-sl-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-sl-green-500 rounded-full"
+                    style={{ width: `${Math.min(100, ap.credibilityScore / 10)}%` }}
+                  />
+                </div>
+                <p className="text-2xs text-sl-slate-400 mt-1">{ap.credibilityScore} / 1000</p>
+              </div>
+            )}
+
+            {/* Agent stats */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {listing.reviewCount > 0 && (
+                <div className="bg-sl-slate-50 rounded-lg px-3 py-2.5 text-center">
+                  <p className="text-base font-bold text-sl-slate-900">{listing.reviewCount}</p>
+                  <p className="text-2xs text-sl-slate-500">Reviews</p>
+                </div>
+              )}
+              {listing.avgRating > 0 && (
+                <div className="bg-sl-slate-50 rounded-lg px-3 py-2.5 text-center">
+                  <p className="text-base font-bold text-sl-slate-900">
+                    {listing.avgRating?.toFixed(1)}
+                  </p>
+                  <p className="text-2xs text-sl-slate-500">Avg rating</p>
+                </div>
               )}
             </div>
 
-            {agentProfile?.reputationScore !== undefined && (
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-gray-500">Reputation</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-brand h-2 rounded-full"
-                      style={{ width: `${agentProfile.reputationScore / 10}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-semibold text-brand">{agentProfile.reputationScore}/1000</span>
-                </div>
-              </div>
+            {/* Bio */}
+            {ap?.bio && (
+              <p className="text-xs text-sl-slate-500 leading-relaxed mb-3">{ap.bio}</p>
             )}
 
-            {listing.avgRating && (
-              <div className="flex items-center gap-2 mb-3">
-                <StarRating rating={Math.round(listing.avgRating)} />
-                <span className="text-sm text-gray-600">{listing.avgRating.toFixed(1)}</span>
-              </div>
-            )}
-
-            {agentProfile?.bio && (
-              <p className="text-sm text-gray-500 leading-relaxed">{agentProfile.bio}</p>
+            {/* View profile */}
+            {agent?.id && (
+              <Link
+                href={`/agents/${agent.id}`}
+                className="text-xs text-sl-green-600 hover:text-sl-green-700
+                           hover:underline font-medium transition-colors"
+              >
+                View full profile →
+              </Link>
             )}
           </div>
 
-          {/* Book Inspection CTA */}
-          <BookInspection />
+          {/* Inspection form */}
+          <div className="border border-sl-slate-200 rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-sl-slate-900 mb-1">Request an inspection</h3>
+            <p className="text-xs text-sl-slate-500 mb-4">
+              The agent will confirm your appointment. No payment required to request.
+            </p>
+            <BookInspectionForm
+              listingId={listing.id}
+              inspectionFee={listing.inspectionFee ?? '0'}
+            />
+          </div>
+
+          {/* Listing meta */}
+          <div className="border border-sl-slate-200 rounded-2xl p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-sl-slate-900">Listing info</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-sl-slate-500">Status</span>
+                <span className="font-medium text-sl-slate-900 capitalize">
+                  {listing.status?.toLowerCase().replace('_', ' ') ?? 'Available'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sl-slate-500">Tier</span>
+                <span className="font-medium text-sl-slate-900">
+                  {listing.tier === 'VERIFIED' ? 'Verified' : 'Basic'}
+                </span>
+              </div>
+              {listing.viewsCount !== undefined && (
+                <div className="flex justify-between">
+                  <span className="text-sl-slate-500">Views</span>
+                  <span className="font-medium text-sl-slate-900">
+                    {listing.viewsCount.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {listing.createdAt && (
+                <div className="flex justify-between">
+                  <span className="text-sl-slate-500">Listed</span>
+                  <span className="font-medium text-sl-slate-900">
+                    {new Date(listing.createdAt).toLocaleDateString('en-NG', {
+                      month: 'short', year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

@@ -1,4 +1,9 @@
 import Link from 'next/link';
+import type { CredibilityTier } from '@/types';
+import CredibilityBadge from './CredibilityBadge';
+import TierBadge from './TierBadge';
+
+/* ─── Types ──────────────────────────────────────────── */
 
 interface ListingCardProps {
   id: string;
@@ -8,124 +13,152 @@ interface ListingCardProps {
   bedrooms: number;
   bathrooms: number;
   propertyType: string;
-  rentPerYear: string; // kobo as string
-  inspectionFee: string; // kobo as string
+  rentPerYear: string;        // kobo as string
+  inspectionFee?: string;     // kobo as string
   photos: string[];
+  tier?: 'BASIC' | 'VERIFIED';
+  lastReconfirmedAt?: string | null;
   isCrossPostFlagged?: boolean;
   agent: {
     fullName: string;
     agentProfile?: {
-      agencyName?: string;
+      agencyName?: string | null;
       reputationScore?: number;
+      credibilityScore?: number;
+      credibilityTier?: string;
       isVerifiedBadge?: boolean;
     } | null;
   };
 }
 
-function formatNaira(koboStr: string): string {
+/* ─── Helpers ────────────────────────────────────────── */
+
+function formatPrice(koboStr: string): string {
   const naira = Number(koboStr) / 100;
-  return `₦${naira.toLocaleString('en-NG')}`;
+  if (naira >= 1_000_000) return `\u20A6${(naira / 1_000_000).toFixed(1)}M`;
+  if (naira >= 100_000)   return `\u20A6${Math.round(naira / 1_000)}K`;
+  return `\u20A6${naira.toLocaleString('en-NG')}`;
 }
 
-function reputationLabel(score: number): { label: string; color: string } {
-  if (score >= 800) return { label: 'Excellent', color: 'text-green-600 bg-green-50' };
-  if (score >= 600) return { label: 'Good', color: 'text-blue-600 bg-blue-50' };
-  if (score >= 400) return { label: 'Fair', color: 'text-yellow-600 bg-yellow-50' };
-  return { label: 'New', color: 'text-gray-600 bg-gray-100' };
+function reconfirmedText(date?: string | null): string | null {
+  if (!date) return null;
+  const days = Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
+  if (days <= 0)  return 'Reconfirmed today';
+  if (days === 1) return 'Reconfirmed 1 day ago';
+  if (days <= 6)  return `Reconfirmed ${days} days ago`;
+  return null;
 }
+
+const PT_LABEL: Record<string, string> = {
+  FLAT: 'Flat', HOUSE: 'House', DUPLEX: 'Duplex',
+  BUNGALOW: 'Bungalow', ROOM_SELF_CONTAIN: 'Room S/C',
+  STUDIO: 'Studio', OFFICE: 'Office', SHOP: 'Shop',
+  WAREHOUSE: 'Warehouse', LAND: 'Land',
+};
+
+/* ─── Component ──────────────────────────────────────── */
 
 export default function ListingCard({
-  id,
-  title,
-  city,
-  area,
-  bedrooms,
-  bathrooms,
-  propertyType,
-  rentPerYear,
-  inspectionFee,
-  photos,
-  isCrossPostFlagged,
-  agent,
+  id, title, city, area, bedrooms, bathrooms,
+  propertyType, rentPerYear, photos,
+  tier, lastReconfirmedAt, isCrossPostFlagged, agent,
 }: ListingCardProps) {
-  const rep = agent.agentProfile?.reputationScore
-    ? reputationLabel(agent.agentProfile.reputationScore)
-    : null;
+  const ap        = agent.agentProfile;
+  const reconfirm = reconfirmedText(lastReconfirmedAt);
 
   return (
-    <Link href={`/listings/${id}`} className="card group hover:shadow-md transition-shadow block">
-      {/* Photo */}
-      <div className="relative h-48 bg-gray-200 overflow-hidden">
+    <Link href={`/listings/${id}`} className="card-hover block group">
+
+      {/* ── Image ──────────────────────────────────────── */}
+      <div className="relative h-44 bg-sl-slate-100 overflow-hidden">
         {photos[0] ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={photos[0]}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-[1.03]
+                       transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+          <div className="w-full h-full flex items-center justify-center">
+            <svg className="w-10 h-10 text-sl-slate-300" fill="none"
+                 stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                    d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </svg>
           </div>
         )}
 
-        {/* Property type badge */}
-        <span className="absolute top-3 left-3 bg-white text-gray-700 text-xs font-medium px-2 py-1 rounded-full shadow-sm">
-          {propertyType}
-        </span>
+        {/* Top overlays */}
+        <div className="absolute inset-x-2.5 top-2.5 flex items-start justify-between gap-2">
+          {tier === 'VERIFIED' && <TierBadge tier="VERIFIED" compact />}
+          {reconfirm && (
+            <span className="ml-auto bg-black/55 text-white text-2xs px-2 py-1
+                             rounded-md font-medium backdrop-blur-sm whitespace-nowrap">
+              {reconfirm}
+            </span>
+          )}
+        </div>
 
-        {/* Cross-post warning */}
+        {/* Cross-post flag */}
         {isCrossPostFlagged && (
-          <span className="absolute top-3 right-3 bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full">
-            ⚠ Flagged
+          <span className="absolute bottom-2 left-2 bg-red-500 text-white
+                           text-2xs font-medium px-2 py-0.5 rounded">
+            Flagged
           </span>
         )}
       </div>
 
-      {/* Content */}
+      {/* ── Content ────────────────────────────────────── */}
       <div className="p-4">
-        <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1 group-hover:text-brand transition-colors">
-          {title}
-        </h3>
-        <p className="text-sm text-gray-500 mb-3">
+
+        {/* Price + type */}
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <p className="text-base font-bold text-sl-slate-900 leading-tight">
+            {formatPrice(rentPerYear)}
+            <span className="text-xs font-normal text-sl-slate-400"> /yr</span>
+          </p>
+          <span className="text-2xs font-medium text-sl-slate-500 bg-sl-slate-100
+                           px-2 py-0.5 rounded flex-shrink-0">
+            {PT_LABEL[propertyType] ?? propertyType}
+          </span>
+        </div>
+
+        {/* Location */}
+        <p className="text-sm text-sl-slate-500 mb-2.5 leading-snug truncate">
           {area}, {city}
         </p>
 
-        <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
-          <span>🛏 {bedrooms} bed</span>
-          <span>🚿 {bathrooms} bath</span>
+        {/* Specs */}
+        <div className="flex items-center gap-3 text-xs text-sl-slate-500 mb-3">
+          <span>{bedrooms} bed{bedrooms !== 1 ? 's' : ''}</span>
+          <span className="text-sl-slate-300">·</span>
+          <span>{bathrooms} bath{bathrooms !== 1 ? 's' : ''}</span>
         </div>
 
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-lg font-bold text-brand">{formatNaira(rentPerYear)}</p>
-            <p className="text-xs text-gray-400">per year</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Inspection fee</p>
-            <p className="text-sm font-semibold text-accent">{formatNaira(inspectionFee)}</p>
-          </div>
-        </div>
-
-        {/* Agent badge */}
-        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-xs font-semibold text-brand">
+        {/* Agent row */}
+        <div className="flex items-center justify-between pt-3 border-t border-sl-slate-100">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-5 h-5 rounded-full bg-sl-green-100 flex items-center
+                            justify-center text-2xs font-bold text-sl-green-700 flex-shrink-0">
               {agent.fullName[0]}
             </div>
-            <span className="text-xs text-gray-600 truncate max-w-[120px]">
-              {agent.agentProfile?.agencyName ?? agent.fullName}
+            <span className="text-xs text-sl-slate-600 truncate">
+              {ap?.agencyName ?? agent.fullName}
             </span>
-            {agent.agentProfile?.isVerifiedBadge && (
-              <span title="Verified Agent" className="text-brand text-xs">✓</span>
+            {ap?.isVerifiedBadge && (
+              <svg className="w-3.5 h-3.5 text-sl-green-500 flex-shrink-0"
+                   viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
             )}
           </div>
-          {rep && (
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${rep.color}`}>
-              {rep.label}
-            </span>
+
+          {ap?.credibilityTier && ap.credibilityTier !== 'UNRATED' && (
+            <CredibilityBadge
+              score={ap.credibilityScore ?? 0}
+              tier={ap.credibilityTier as CredibilityTier}
+            />
           )}
         </div>
       </div>
