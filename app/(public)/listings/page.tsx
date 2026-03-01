@@ -120,7 +120,7 @@ export default async function ListingsPage({ searchParams }: SearchProps) {
             <a href="/listings" className="btn-md btn-secondary">Clear all filters</a>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {listings.map((listing: Parameters<typeof ListingCard>[0]) => (
               <ListingCard key={listing.id} {...listing} />
             ))}
