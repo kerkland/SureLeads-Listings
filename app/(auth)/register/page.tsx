@@ -42,18 +42,15 @@ export default function RegisterPage() {
         return;
       }
 
-      // Store access token
       localStorage.setItem('accessToken', data.data.accessToken);
 
-      // Send OTP for verification
       await fetch('/api/auth/otp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: form.phone }),
       });
 
-      const next =
-        role === 'AGENT' ? '/onboarding/agent' : '/listings';
+      const next = role === 'AGENT' ? '/onboarding/agent' : '/listings';
       router.push(
         `/verify?phone=${encodeURIComponent(form.phone)}&next=${encodeURIComponent(next)}`,
       );
@@ -66,20 +63,23 @@ export default function RegisterPage() {
 
   return (
     <div className="w-full max-w-md">
-      <div className="card p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Create your account</h1>
-        <p className="text-gray-500 text-sm mb-6">Join Prop — Nigeria&apos;s trusted property platform</p>
+      <div className="card p-6 sm:p-8">
+        <h1 className="text-2xl font-bold text-sl-slate-900 mb-1">Create your account</h1>
+        <p className="text-sl-slate-500 text-sm mb-6">
+          Join SureLeads — Lagos&apos;s trusted property platform
+        </p>
 
         {/* Role toggle */}
-        <div className="flex rounded-lg border border-gray-200 p-1 mb-6 bg-gray-50">
+        <div className="flex rounded-xl border border-sl-slate-200 p-1 mb-6 bg-sl-slate-50">
           {(['CLIENT', 'AGENT'] as Role[]).map((r) => (
             <button
               key={r}
+              type="button"
               onClick={() => setRole(r)}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
                 role === r
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-gray-600 hover:text-brand'
+                  ? 'bg-sl-green-600 text-white shadow-sm'
+                  : 'text-sl-slate-600 hover:text-sl-slate-900'
               }`}
             >
               {r === 'CLIENT' ? '🏠 Find Property' : '🏢 List Property'}
@@ -113,7 +113,10 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="label">Email Address</label>
+            <label className="label">
+              Email Address{' '}
+              <span className="text-sl-slate-400 font-normal">(optional)</span>
+            </label>
             <input
               type="email"
               className="input"
@@ -149,19 +152,20 @@ export default function RegisterPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm
+                            px-4 py-3 rounded-xl">
               {error}
             </div>
           )}
 
-          <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? 'Creating account…' : 'Create Account'}
+          <button type="submit" className="btn-md btn-primary w-full" disabled={loading}>
+            {loading ? 'Creating account…' : 'Create account'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-sl-slate-500 mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="text-brand font-medium hover:underline">
+          <Link href="/login" className="text-sl-green-600 font-medium hover:underline">
             Sign in
           </Link>
         </p>

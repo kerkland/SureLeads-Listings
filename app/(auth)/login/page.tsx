@@ -45,8 +45,8 @@ function LoginForm() {
   return (
     <div className="w-full max-w-md">
       <div className="card p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome back</h1>
-        <p className="text-gray-500 text-sm mb-6">Sign in to your Prop account</p>
+        <h1 className="text-2xl font-bold text-sl-slate-900 mb-2">Welcome back</h1>
+        <p className="text-sl-slate-500 text-sm mb-6">Sign in to your SureLeads account</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -79,14 +79,14 @@ function LoginForm() {
             </div>
           )}
 
-          <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
+          <button type="submit" className="btn-md btn-primary w-full" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-sl-slate-500 mt-6">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-brand font-medium hover:underline">
+          <Link href="/register" className="text-sl-green-600 font-medium hover:underline">
             Create one
           </Link>
         </p>

@@ -351,7 +351,7 @@ export default function NewListingPage() {
               <label className="block text-sm font-semibold text-sl-slate-700 mb-3">
                 Listing category <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {CATEGORIES.map((cat) => {
                   const sel = form.category === cat.value;
                   const colors: Record<string, string> = {
@@ -386,15 +386,16 @@ export default function NewListingPage() {
                 Property type <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {PROPERTY_TYPES.map((pt) => {
+                {PROPERTY_TYPES.map((pt, i) => {
                   const sel = form.propertyType === pt.value;
+                  const isLastOdd = i === PROPERTY_TYPES.length - 1 && PROPERTY_TYPES.length % 2 !== 0;
                   return (
                     <button
                       key={pt.value}
                       type="button"
                       onClick={() => setForm((f) => ({ ...f, propertyType: pt.value }))}
                       className={`flex items-center gap-3 border-2 rounded-xl px-4 py-3
-                                  transition-all text-left ${
+                                  transition-all text-left ${isLastOdd ? 'col-span-2 sm:col-span-1' : ''} ${
                         sel
                           ? 'border-sl-green-500 bg-sl-green-50'
                           : 'border-sl-slate-200 bg-white hover:border-sl-green-300'
