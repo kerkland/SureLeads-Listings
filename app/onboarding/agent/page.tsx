@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -68,6 +68,57 @@ type FormData = {
   servedAreas: string[];
   plan: string;
 };
+
+/* ─── Success screen ───────────────────────────────────── */
+
+function SuccessScreen({ router }: { router: ReturnType<typeof useRouter> }) {
+  const [countdown, setCountdown] = useState(3);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setCountdown((n) => {
+        if (n <= 1) {
+          clearInterval(t);
+          router.push('/dashboard');
+        }
+        return n - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [router]);
+
+  return (
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center
+                    px-4 text-center">
+      <div className="w-16 h-16 bg-sl-green-50 rounded-2xl flex items-center
+                       justify-center mb-6">
+        <svg className="w-8 h-8 text-sl-green-600" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+            clipRule="evenodd" />
+        </svg>
+      </div>
+
+      <h1 className="text-2xl font-bold text-sl-slate-900 mb-2">
+        {"You're all set!"}
+      </h1>
+      <p className="text-sm text-sl-slate-500 max-w-sm mb-3 leading-relaxed">
+        Your agent profile has been created. Our team will review your details
+        and grant your verified badge once approved.
+      </p>
+      <p className="text-xs text-sl-slate-400 mb-8">
+        Redirecting to your dashboard in {countdown}s…
+      </p>
+
+      <button
+        onClick={() => router.push('/dashboard')}
+        className="btn-lg btn-primary"
+      >
+        Go to dashboard
+      </button>
+    </div>
+  );
+}
 
 /* ─── Page ─────────────────────────────────────────────── */
 
@@ -149,39 +200,9 @@ export default function AgentOnboardingPage() {
     }
   }
 
-  /* ── Success screen ── */
+  /* ── Success screen (auto-redirects to dashboard) ── */
   if (done) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 text-center">
-        <div className="w-16 h-16 bg-sl-green-50 rounded-2xl flex items-center justify-center mb-6">
-          <svg className="w-8 h-8 text-sl-green-600" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-              clipRule="evenodd" />
-          </svg>
-        </div>
-
-        <h1 className="text-2xl font-bold text-sl-slate-900 mb-2">
-          {"You're all set!"}
-        </h1>
-        <p className="text-sm text-sl-slate-500 max-w-sm mb-3 leading-relaxed">
-          Your agent profile has been created. Our team will review your
-          details and grant your verified badge once approved.
-        </p>
-        <p className="text-xs text-sl-slate-400 mb-8">
-          This usually takes 1–2 business days.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Link href="/dashboard" className="btn-lg btn-primary">
-            Go to dashboard
-          </Link>
-          <Link href="/listings" className="btn-lg btn-secondary">
-            Browse listings
-          </Link>
-        </div>
-      </div>
-    );
+    return <SuccessScreen router={router} />;
   }
 
   /* ── Wizard ── */
