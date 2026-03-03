@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import { withAuth } from '@/lib/middleware';
 import type { AuthenticatedRequest } from '@/lib/middleware';
@@ -113,44 +114,105 @@ export async function GET(req: NextRequest) {
         : {}),
     };
 
-    const orderBy =
-      sortBy === 'price_asc'
-        ? { rentPerYear: 'asc' as const }
-        : sortBy === 'price_desc'
-        ? { rentPerYear: 'desc' as const }
-        : sortBy === 'credibility'
-        ? { agent: { agentProfile: { credibilityScore: 'desc' as const } } }
-        : { createdAt: 'desc' as const };
-
-    const [listings, total] = await Promise.all([
-      prisma.listing.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
-        include: {
-          agent: {
+    // Shared include block used by both code paths
+    const listingInclude = {
+      agent: {
+        select: {
+          id: true,
+          fullName: true,
+          agentProfile: {
             select: {
               id: true,
-              fullName: true,
-              agentProfile: {
-                select: {
-                  id: true,
-                  agencyName: true,
-                  profilePhoto: true,
-                  reputationScore: true,
-                  credibilityScore: true,
-                  credibilityTier: true,
-                  isVerifiedBadge: true,
-                },
-              },
+              agencyName: true,
+              profilePhoto: true,
+              reputationScore: true,
+              credibilityScore: true,
+              credibilityTier: true,
+              isVerifiedBadge: true,
             },
           },
-          videoWalkthrough: { select: { status: true } },
         },
-      }),
-      prisma.listing.count({ where }),
-    ]);
+      },
+      videoWalkthrough: { select: { status: true } },
+    } as const;
+
+    let listings: Awaited<ReturnType<typeof prisma.listing.findMany>>;
+    let total: number;
+
+    if (sortBy === 'credibility') {
+      // ── Composite rank: credibilityScore × tierMultiplier ─────────────────
+      // VERIFIED listings get full weight (×1.0), BASIC get ×0.6
+      // Agents with no profile default to score 0 (LEFT JOIN + COALESCE)
+      const sqlConditions: Prisma.Sql[] = [
+        Prisma.sql`l.status = 'AVAILABLE'`,
+        Prisma.sql`l."deletedAt" IS NULL`,
+      ];
+      if (city)          sqlConditions.push(Prisma.sql`l.city ILIKE ${'%' + city + '%'}`);
+      if (area)          sqlConditions.push(Prisma.sql`l.area ILIKE ${'%' + area + '%'}`);
+      if (bedrooms !== undefined) sqlConditions.push(Prisma.sql`l.bedrooms = ${bedrooms}`);
+      if (propertyType)  sqlConditions.push(Prisma.sql`l."propertyType"::text = ${propertyType}`);
+      if (tier)          sqlConditions.push(Prisma.sql`l.tier::text = ${tier}`);
+      if (minRent)       sqlConditions.push(Prisma.sql`l."rentPerYear" >= ${BigInt(minRent)}`);
+      if (maxRent)       sqlConditions.push(Prisma.sql`l."rentPerYear" <= ${BigInt(maxRent)}`);
+
+      const whereClause = Prisma.join(sqlConditions, ' AND ');
+
+      const [rankedRows, countResult] = await Promise.all([
+        prisma.$queryRaw<{ id: string }[]>(
+          Prisma.sql`
+            SELECT l.id
+            FROM   listings l
+            LEFT JOIN agent_profiles ap ON ap."userId" = l."agentId"
+            WHERE  ${whereClause}
+            ORDER BY (
+              COALESCE(ap."credibilityScore", 0)::float *
+              CASE l.tier::text WHEN 'VERIFIED' THEN 1.0 ELSE 0.6 END
+            ) DESC,
+            l."createdAt" DESC
+            LIMIT  ${limit}
+            OFFSET ${skip}
+          `
+        ),
+        prisma.$queryRaw<{ count: bigint }[]>(
+          Prisma.sql`
+            SELECT COUNT(*) AS count
+            FROM   listings l
+            WHERE  ${whereClause}
+          `
+        ),
+      ]);
+
+      const idList = rankedRows.map((r) => r.id);
+      total = Number(countResult[0]?.count ?? 0);
+
+      const rows = await prisma.listing.findMany({
+        where: { id: { in: idList } },
+        include: listingInclude,
+      });
+
+      // Re-sort to match SQL rank order (findMany result order is not guaranteed)
+      const idIndex = new Map(idList.map((id, i) => [id, i]));
+      listings = rows.sort((a, b) => (idIndex.get(a.id) ?? 0) - (idIndex.get(b.id) ?? 0));
+    } else {
+      // ── Standard Prisma orderBy for all other sorts ────────────────────────
+      const orderBy =
+        sortBy === 'price_asc'
+          ? { rentPerYear: 'asc' as const }
+          : sortBy === 'price_desc'
+          ? { rentPerYear: 'desc' as const }
+          : { createdAt: 'desc' as const };
+
+      [listings, total] = await Promise.all([
+        prisma.listing.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy,
+          include: listingInclude,
+        }),
+        prisma.listing.count({ where }),
+      ]);
+    }
 
     return NextResponse.json({
       success: true,
