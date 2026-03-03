@@ -218,7 +218,7 @@ export default function ProfilePage() {
             {/* Upload controls */}
             <div className="flex-1 min-w-0">
               <p className="text-sm text-sl-slate-700 font-medium mb-1">
-                Upload a clear photo of yourself
+                Upload a clear photo of yourself or company logo
               </p>
               <p className="text-xs text-sl-slate-400 mb-3">
                 JPG, PNG or WEBP · Max 5 MB · Appears on your listing cards
