@@ -4,12 +4,13 @@ import { withAuth } from '@/lib/middleware';
 import prisma from '@/lib/db';
 
 const schema = z.object({
-  agencyName: z.string().min(2).max(100),
-  cacNumber:  z.string().max(30).optional(),
-  bio:        z.string().min(20).max(500),
-  primaryArea: z.string().min(1),
-  servedAreas: z.array(z.string()).default([]),
-  plan: z.enum(['STARTER', 'PROFESSIONAL', 'AGENCY']).default('STARTER'),
+  agencyName:   z.string().min(2).max(100),
+  cacNumber:    z.string().max(30).optional(),
+  bio:          z.string().min(20).max(500),
+  primaryArea:  z.string().min(1),
+  servedAreas:  z.array(z.string()).default([]),
+  plan:         z.enum(['STARTER', 'PROFESSIONAL', 'AGENCY']).default('STARTER'),
+  profilePhoto: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const { agencyName, cacNumber, bio, primaryArea, servedAreas, plan } =
+      const { agencyName, cacNumber, bio, primaryArea, servedAreas, plan, profilePhoto } =
         parsed.data;
 
       // Combine primary + other areas, deduped
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
           primaryCity:      primaryArea,
           servedCities:     allAreas,
           subscriptionTier: plan,
+          ...(profilePhoto !== undefined ? { profilePhoto } : {}),
         },
         create: {
           userId:           user.id,
@@ -55,6 +57,7 @@ export async function POST(req: NextRequest) {
           primaryCity:      primaryArea,
           servedCities:     allAreas,
           subscriptionTier: plan,
+          profilePhoto:     profilePhoto ?? null,
         },
       });
 

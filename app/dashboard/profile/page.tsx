@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const LAGOS_AREAS = [
   'Ajah', 'Bariga', 'Chevron', 'Gbagada', 'Ikoyi',
@@ -11,25 +11,54 @@ const LAGOS_AREAS = [
 ];
 
 interface ProfileForm {
-  agencyName:  string;
-  cacNumber:   string;
-  bio:         string;
-  primaryArea: string;
-  servedAreas: string[];
+  agencyName:   string;
+  cacNumber:    string;
+  bio:          string;
+  primaryArea:  string;
+  servedAreas:  string[];
+  profilePhoto: string; // base64 data URL or empty string
+}
+
+/** Resize + compress an image File to a square-ish JPEG data URL (max 256px). */
+function compressPhoto(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const MAX = 256;
+        const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+        const w = Math.round(img.width  * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width  = w;
+        canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = ev.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function ProfilePage() {
-  const [form, setForm]       = useState<ProfileForm>({
-    agencyName:  '',
-    cacNumber:   '',
-    bio:         '',
-    primaryArea: '',
-    servedAreas: [],
+  const [form, setForm] = useState<ProfileForm>({
+    agencyName:   '',
+    cacNumber:    '',
+    bio:          '',
+    primaryArea:  '',
+    servedAreas:  [],
+    profilePhoto: '',
   });
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState(false);
-  const [saved,    setSaved]    = useState(false);
-  const [error,    setError]    = useState('');
+  const [loading,      setLoading]      = useState(true);
+  const [saving,       setSaving]       = useState(false);
+  const [saved,        setSaved]        = useState(false);
+  const [error,        setError]        = useState('');
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* Load existing profile */
   useEffect(() => {
@@ -42,11 +71,12 @@ export default function ProfilePage() {
         if (data.success && data.data) {
           const p = data.data;
           setForm({
-            agencyName:  p.agencyName  ?? '',
-            cacNumber:   p.cacNumber   ?? '',
-            bio:         p.bio         ?? '',
-            primaryArea: p.primaryCity ?? '',
-            servedAreas: p.servedCities?.filter((c: string) => c !== p.primaryCity) ?? [],
+            agencyName:   p.agencyName  ?? '',
+            cacNumber:    p.cacNumber   ?? '',
+            bio:          p.bio         ?? '',
+            primaryArea:  p.primaryCity ?? '',
+            servedAreas:  p.servedCities?.filter((c: string) => c !== p.primaryCity) ?? [],
+            profilePhoto: p.profilePhoto ?? '',
           });
         }
       })
@@ -61,6 +91,26 @@ export default function ProfilePage() {
         ? f.servedAreas.filter((a) => a !== area)
         : [...f.servedAreas, area],
     }));
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Photo must be smaller than 5 MB.');
+      return;
+    }
+    setPhotoLoading(true);
+    setError('');
+    try {
+      const dataUrl = await compressPhoto(file);
+      setForm((f) => ({ ...f, profilePhoto: dataUrl }));
+    } catch {
+      setError('Could not process image. Please try a different file.');
+    } finally {
+      setPhotoLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -78,7 +128,11 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ ...form, plan: 'STARTER' }),
+        body: JSON.stringify({
+          ...form,
+          plan: 'STARTER',
+          profilePhoto: form.profilePhoto || undefined,
+        }),
       });
       const data = await res.json();
       if (!data.success) { setError(data.error ?? 'Save failed.'); return; }
@@ -99,8 +153,12 @@ export default function ProfilePage() {
     );
   }
 
+  const initials = form.agencyName
+    ? form.agencyName[0].toUpperCase()
+    : '?';
+
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
       {/* Header */}
       <div className="mb-8">
@@ -118,7 +176,88 @@ export default function ProfilePage() {
 
       <form onSubmit={handleSave} className="space-y-6">
 
-        {/* Agency details card */}
+        {/* ── Profile photo card ───────────────────────────────────── */}
+        <div className="bg-white border border-sl-slate-200 rounded-2xl p-6">
+          <h2 className="text-sm font-semibold text-sl-slate-900 mb-5">
+            Profile photo
+          </h2>
+          <div className="flex items-center gap-5">
+
+            {/* Avatar preview */}
+            <div className="relative flex-shrink-0">
+              {form.profilePhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.profilePhoto}
+                  alt="Profile"
+                  className="w-20 h-20 rounded-full object-cover border-2
+                             border-sl-green-200 shadow-sm"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-sl-green-100 flex
+                                items-center justify-center border-2 border-sl-green-200">
+                  <span className="text-2xl font-bold text-sl-green-700">
+                    {initials}
+                  </span>
+                </div>
+              )}
+              {photoLoading && (
+                <div className="absolute inset-0 rounded-full bg-white/70
+                                flex items-center justify-center">
+                  <svg className="w-5 h-5 animate-spin text-sl-green-500"
+                       fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10"
+                            stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor"
+                          d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Upload controls */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-sl-slate-700 font-medium mb-1">
+                Upload a clear photo of yourself
+              </p>
+              <p className="text-xs text-sl-slate-400 mb-3">
+                JPG, PNG or WEBP · Max 5 MB · Appears on your listing cards
+              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={photoLoading}
+                  className="px-4 py-2 text-sm font-medium rounded-xl border
+                             border-sl-slate-200 bg-white text-sl-slate-700
+                             hover:bg-sl-slate-50 hover:border-sl-slate-300
+                             transition-colors disabled:opacity-50"
+                >
+                  {form.profilePhoto ? 'Change photo' : 'Upload photo'}
+                </button>
+                {form.profilePhoto && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, profilePhoto: '' }))}
+                    className="text-xs text-red-500 hover:text-red-700
+                               transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Agency details card ──────────────────────────────────── */}
         <div className="bg-white border border-sl-slate-200 rounded-2xl p-6">
           <h2 className="text-sm font-semibold text-sl-slate-900 mb-5">
             Agency details
@@ -180,7 +319,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Service areas card */}
+        {/* ── Service areas card ───────────────────────────────────── */}
         <div className="bg-white border border-sl-slate-200 rounded-2xl p-6">
           <h2 className="text-sm font-semibold text-sl-slate-900 mb-5">
             Service areas

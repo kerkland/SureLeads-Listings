@@ -23,6 +23,7 @@ interface ListingCardProps {
     fullName: string;
     agentProfile?: {
       agencyName?: string | null;
+      profilePhoto?: string | null;
       reputationScore?: number;
       credibilityScore?: number;
       credibilityTier?: string;
@@ -139,10 +140,19 @@ export default function ListingCard({
         {/* Agent row */}
         <div className="flex items-center justify-between pt-3 border-t border-sl-slate-100">
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-5 h-5 rounded-full bg-sl-green-100 flex items-center
-                            justify-center text-2xs font-bold text-sl-green-700 flex-shrink-0">
-              {agent.fullName[0]}
-            </div>
+            {ap?.profilePhoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={ap.profilePhoto}
+                alt={ap.agencyName ?? agent.fullName}
+                className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-sl-green-100 flex items-center
+                              justify-center text-2xs font-bold text-sl-green-700 flex-shrink-0">
+                {agent.fullName[0]}
+              </div>
+            )}
             <span className="text-xs text-sl-slate-600 truncate">
               {ap?.agencyName ?? agent.fullName}
             </span>
