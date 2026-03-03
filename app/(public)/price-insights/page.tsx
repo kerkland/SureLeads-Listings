@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import type { PropertyType, PriceInsightResponse, PriceDataQualityFlag } from '@/types';
 
@@ -90,7 +89,6 @@ export default function PriceInsightsPage() {
   const [bedrooms,     setBedrooms]     = useState('');
   const [result,       setResult]       = useState<PriceInsightResponse | null>(null);
   const [loading,      setLoading]      = useState(false);
-  const [unauthed,     setUnauthed]     = useState(false);
   const [error,        setError]        = useState('');
 
   async function search(e: React.FormEvent) {
@@ -99,12 +97,10 @@ export default function PriceInsightsPage() {
     setLoading(true);
     setError('');
     setResult(null);
-    setUnauthed(false);
 
     const params = new URLSearchParams({ city: 'Lagos', area, propertyType, bedrooms: bedrooms || '-1' });
     try {
       const res = await fetch('/api/price-insights?' + params.toString());
-      if (res.status === 401) { setUnauthed(true); return; }
       const json = await res.json();
       if (json.success) setResult(json.data);
       else setError(json.error ?? 'Something went wrong.');
@@ -129,7 +125,7 @@ export default function PriceInsightsPage() {
           <h1 className="text-2xl font-bold text-sl-slate-900 mb-1">Area Price Insights</h1>
           <p className="text-sm text-sl-slate-500 max-w-lg">
             Rental medians from verified, weekly-reconfirmed listings — 30-day rolling window.
-            Outliers removed. Requires sign-in.
+            Outliers removed.
           </p>
         </div>
       </div>
@@ -198,27 +194,6 @@ export default function PriceInsightsPage() {
             </button>
           </form>
         </div>
-
-        {/* ── Auth gate ── */}
-        {unauthed && (
-          <div className="bg-white border border-sl-slate-200 rounded-2xl p-8 text-center">
-            <div className="w-10 h-10 bg-sl-green-50 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <svg className="w-5 h-5 text-sl-green-600" fill="none"
-                   stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold text-sl-slate-900 mb-1">Sign in to view price insights</p>
-            <p className="text-xs text-sl-slate-500 mb-4">
-              Area price data is available to registered renters and agents.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Link href="/login"    className="btn-md btn-secondary">Sign in</Link>
-              <Link href="/register" className="btn-md btn-primary">Create free account</Link>
-            </div>
-          </div>
-        )}
 
         {/* ── No data ── */}
         {result && !result.available && (

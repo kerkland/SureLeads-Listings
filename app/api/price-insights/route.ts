@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { withAuth } from '@/lib/middleware';
 import type { PropertyType, PriceTrend, PriceDataQualityFlag } from '@/types';
 
 export async function GET(req: NextRequest) {
-  return withAuth(req, ['AGENT', 'CLIENT'], async () => {
-    const { searchParams } = new URL(req.url);
-    const city         = searchParams.get('city');
-    const area         = searchParams.get('area');
-    const propertyType = searchParams.get('propertyType') as PropertyType | null;
-    const bedrooms     = parseInt(searchParams.get('bedrooms') ?? '-1');
+  const { searchParams } = new URL(req.url);
+  const city         = searchParams.get('city');
+  const area         = searchParams.get('area');
+  const propertyType = searchParams.get('propertyType') as PropertyType | null;
+  const bedrooms     = parseInt(searchParams.get('bedrooms') ?? '-1');
 
-    if (!city || !area || !propertyType) {
-      return NextResponse.json(
-        { success: false, error: 'city, area, and propertyType are required' },
-        { status: 400 },
-      );
-    }
+  if (!city || !area || !propertyType) {
+    return NextResponse.json(
+      { success: false, error: 'city, area, and propertyType are required' },
+      { status: 400 },
+    );
+  }
 
+  try {
     // ── Exact match ──
     const index = await prisma.areaPriceIndex.findUnique({
       where: { city_area_propertyType_bedrooms: { city, area, propertyType, bedrooms } },
@@ -69,7 +68,10 @@ export async function GET(req: NextRequest) {
       success: true,
       data: { available: false, reason: 'insufficient_data' },
     });
-  });
+  } catch (err) {
+    console.error('[GET /api/price-insights]', err);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 // ─── Serializer ───────────────────────────────────────────────────────────────
