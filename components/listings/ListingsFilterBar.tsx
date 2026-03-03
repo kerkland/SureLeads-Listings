@@ -3,7 +3,12 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
 
-const CITIES = ['Lagos', 'Abuja', 'Port Harcourt', 'Ibadan', 'Kano', 'Enugu'];
+const AREAS = [
+  'Lekki Phase 1', 'Lekki Phase 2', 'Victoria Island', 'Ikoyi', 'Banana Island',
+  'Ajah', 'Sangotedo', 'Chevron', 'Osapa London',
+  'Ikeja GRA', 'Ikeja', 'Maryland', 'Gbagada', 'Yaba',
+  'Surulere', 'Magodo', 'Ojodu', 'Ogba', 'Ketu',
+];
 
 const PROPERTY_TYPES = [
   { value: 'FLAT',              label: 'Flat'      },
@@ -41,28 +46,28 @@ export default function ListingsFilterBar() {
     [router, searchParams],
   );
 
-  const city         = searchParams.get('city')         ?? '';
+  const area         = searchParams.get('area')         ?? '';
   const bedrooms     = searchParams.get('bedrooms')     ?? '';
   const propertyType = searchParams.get('propertyType') ?? '';
   const tier         = searchParams.get('tier')         ?? '';
   const sortBy       = searchParams.get('sortBy')       ?? 'newest';
 
-  const hasFilters = !!(city || bedrooms || propertyType || tier);
+  const hasFilters = !!(area || bedrooms || propertyType || tier);
 
   return (
     <div className="bg-white border-b border-sl-slate-200 sticky top-14 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2 py-3 overflow-x-auto no-scrollbar">
 
-          {/* City */}
+          {/* Area */}
           <select
-            value={city}
-            onChange={(e) => update('city', e.target.value)}
+            value={area}
+            onChange={(e) => update('area', e.target.value)}
             className={SELECT_CLS}
-            aria-label="Filter by city"
+            aria-label="Filter by area"
           >
-            <option value="">All cities</option>
-            {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            <option value="">All areas</option>
+            {AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
 
           {/* Bedrooms */}

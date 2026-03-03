@@ -4,12 +4,15 @@ import { MOCK_LISTINGS } from '@/lib/mockData';
 
 /* ─── Static data ────────────────────────────────────── */
 
-const CITIES = ['Lagos', 'Abuja', 'Port Harcourt', 'Ibadan', 'Kano', 'Enugu'];
+const AREAS = [
+  'Lekki', 'Victoria Island', 'Ikoyi', 'Ajah',
+  'Ikeja', 'Surulere', 'Yaba', 'Gbagada',
+];
 
 const STATS = [
-  { value: '2,400+', label: 'Active listings'        },
+  { value: '1,200+', label: 'Active listings'        },
   { value: '94%',    label: 'Reconfirmed this week'  },
-  { value: '6',      label: 'Cities covered'          },
+  { value: 'Lagos',  label: 'State covered'           },
   { value: '₦0',     label: 'Lost to verified fraud' },
 ];
 
@@ -35,10 +38,10 @@ const HOW = [
 ];
 
 const INSIGHT_PREVIEW = [
-  { area: 'Lekki Phase 1, Lagos',  p25: '₦2.4M', med: '₦3.1M', p75: '₦4.2M', n: 28 },
-  { area: 'Wuse 2, Abuja',         p25: '₦1.8M', med: '₦2.5M', p75: '₦3.6M', n: 14 },
-  { area: 'GRA, Port Harcourt',    p25: '₦1.2M', med: '₦1.9M', p75: '₦2.7M', n:  9 },
-  { area: 'Ikeja GRA, Lagos',      p25: '₦2.1M', med: '₦2.9M', p75: '₦3.8M', n: 19 },
+  { area: 'Lekki Phase 1',  p25: '₦2.4M', med: '₦3.1M', p75: '₦4.2M', n: 28 },
+  { area: 'Victoria Island', p25: '₦3.5M', med: '₦5.0M', p75: '₦7.2M', n: 17 },
+  { area: 'Ikeja GRA',      p25: '₦2.1M', med: '₦2.9M', p75: '₦3.8M', n: 19 },
+  { area: 'Surulere',       p25: '₦0.9M', med: '₦1.3M', p75: '₦1.8M', n: 34 },
 ];
 
 const FEATURED = MOCK_LISTINGS.slice(0, 3);
@@ -56,7 +59,7 @@ export default function HomePage() {
           <div className="inline-flex items-center gap-2 bg-white border border-sl-slate-200
                           rounded-full px-3.5 py-1.5 text-xs font-medium text-sl-slate-600 mb-8">
             <span className="w-1.5 h-1.5 bg-sl-green-500 rounded-full animate-pulse-slow" />
-            Now live in {CITIES.length} cities across Nigeria
+            Now live across Lagos State
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-sl-slate-900
@@ -81,7 +84,7 @@ export default function HomePage() {
               </svg>
               <input
                 type="text"
-                placeholder="City, area or neighbourhood…"
+                placeholder="Area or neighbourhood in Lagos…"
                 className="flex-1 py-2.5 text-sm text-sl-slate-900
                            placeholder-sl-slate-400 focus:outline-none bg-transparent"
               />
@@ -101,16 +104,16 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* City chips */}
+          {/* Area chips */}
           <div className="flex flex-wrap gap-2 justify-center mt-5">
-            {CITIES.map((city) => (
+            {AREAS.map((area) => (
               <Link
-                key={city}
-                href={`/listings?city=${city}`}
+                key={area}
+                href={`/listings?area=${encodeURIComponent(area)}`}
                 className="px-3 py-1.5 text-sm text-sl-slate-600 bg-white border border-sl-slate-200
                            rounded-lg hover:border-sl-green-300 hover:text-sl-green-700 transition-colors"
               >
-                {city}
+                {area}
               </Link>
             ))}
           </div>

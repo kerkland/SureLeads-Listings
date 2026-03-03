@@ -6,7 +6,12 @@ import type { PropertyType, PriceInsightResponse, PriceDataQualityFlag } from '@
 
 /* ─── Static data ────────────────────────────────────────────────────────── */
 
-const CITIES = ['Lagos', 'Abuja', 'Port Harcourt', 'Ibadan', 'Kano', 'Enugu'];
+const AREAS = [
+  'Lekki Phase 1', 'Lekki Phase 2', 'Victoria Island', 'Ikoyi', 'Banana Island',
+  'Ajah', 'Sangotedo', 'Chevron', 'Osapa London',
+  'Ikeja GRA', 'Ikeja', 'Maryland', 'Gbagada', 'Yaba',
+  'Surulere', 'Magodo', 'Ojodu', 'Ogba', 'Ketu',
+];
 
 const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: 'FLAT',      label: 'Flat'      },
@@ -80,7 +85,6 @@ function QualityWarnings({ flags }: { flags: PriceDataQualityFlag[] }) {
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 
 export default function PriceInsightsPage() {
-  const [city,         setCity]         = useState('');
   const [area,         setArea]         = useState('');
   const [propertyType, setPropertyType] = useState<PropertyType | ''>('');
   const [bedrooms,     setBedrooms]     = useState('');
@@ -91,13 +95,13 @@ export default function PriceInsightsPage() {
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
-    if (!city || !area || !propertyType) return;
+    if (!area || !propertyType) return;
     setLoading(true);
     setError('');
     setResult(null);
     setUnauthed(false);
 
-    const params = new URLSearchParams({ city, area, propertyType, bedrooms: bedrooms || '-1' });
+    const params = new URLSearchParams({ city: 'Lagos', area, propertyType, bedrooms: bedrooms || '-1' });
     try {
       const res = await fetch('/api/price-insights?' + params.toString());
       if (res.status === 401) { setUnauthed(true); return; }
@@ -137,22 +141,12 @@ export default function PriceInsightsPage() {
           <form onSubmit={search} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="label">City</label>
-                <select value={city} onChange={(e) => setCity(e.target.value)} className="select w-full">
-                  <option value="">Select city</option>
-                  {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                <label className="label">Area / Neighbourhood</label>
+                <select value={area} onChange={(e) => setArea(e.target.value)} className="select w-full">
+                  <option value="">Select area</option>
+                  {AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="label">Area / Neighbourhood</label>
-                <input
-                  value={area}
-                  onChange={(e) => setArea(e.target.value)}
-                  placeholder="e.g. Lekki Phase 1"
-                  className="input w-full"
-                />
-              </div>
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -187,7 +181,7 @@ export default function PriceInsightsPage() {
 
             <button
               type="submit"
-              disabled={loading || !city || !area || !propertyType}
+              disabled={loading || !area || !propertyType}
               className="btn-md btn-primary w-full justify-center"
             >
               {loading ? (

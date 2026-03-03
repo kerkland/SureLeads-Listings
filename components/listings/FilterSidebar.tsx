@@ -4,13 +4,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 const PROPERTY_TYPES = ['FLAT', 'DUPLEX', 'ROOM', 'BUNGALOW', 'TERRACED'];
-const CITIES = ['Lagos', 'Abuja', 'Port Harcourt', 'Ibadan', 'Kano', 'Enugu', 'Benin City'];
+const AREAS = [
+  'Lekki Phase 1', 'Lekki Phase 2', 'Victoria Island', 'Ikoyi', 'Banana Island',
+  'Ajah', 'Sangotedo', 'Chevron', 'Osapa London',
+  'Ikeja GRA', 'Ikeja', 'Maryland', 'Gbagada', 'Yaba',
+  'Surulere', 'Magodo', 'Ojodu', 'Ogba', 'Ketu',
+];
 
 export default function FilterSidebar() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [city, setCity] = useState(searchParams.get('city') ?? '');
+  const [area, setArea] = useState(searchParams.get('area') ?? '');
   const [bedrooms, setBedrooms] = useState(searchParams.get('bedrooms') ?? '');
   const [minRent, setMinRent] = useState(searchParams.get('minRent') ?? '');
   const [maxRent, setMaxRent] = useState(searchParams.get('maxRent') ?? '');
@@ -18,7 +23,7 @@ export default function FilterSidebar() {
 
   function applyFilters() {
     const params = new URLSearchParams();
-    if (city) params.set('city', city);
+    if (area) params.set('area', area);
     if (bedrooms) params.set('bedrooms', bedrooms);
     if (minRent) params.set('minRent', (Number(minRent) * 100).toString()); // convert to kobo
     if (maxRent) params.set('maxRent', (Number(maxRent) * 100).toString());
@@ -27,7 +32,7 @@ export default function FilterSidebar() {
   }
 
   function clearFilters() {
-    setCity('');
+    setArea('');
     setBedrooms('');
     setMinRent('');
     setMaxRent('');
@@ -39,13 +44,13 @@ export default function FilterSidebar() {
     <aside className="bg-white rounded-xl border border-gray-100 p-5 sticky top-24">
       <h2 className="font-semibold text-gray-900 mb-4">Filter Properties</h2>
 
-      {/* City */}
+      {/* Area */}
       <div className="mb-4">
-        <label className="label">City</label>
-        <select className="input" value={city} onChange={(e) => setCity(e.target.value)}>
-          <option value="">All cities</option>
-          {CITIES.map((c) => (
-            <option key={c} value={c}>{c}</option>
+        <label className="label">Area</label>
+        <select className="input" value={area} onChange={(e) => setArea(e.target.value)}>
+          <option value="">All areas</option>
+          {AREAS.map((a) => (
+            <option key={a} value={a}>{a}</option>
           ))}
         </select>
       </div>
