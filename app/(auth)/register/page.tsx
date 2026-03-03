@@ -52,7 +52,11 @@ export default function RegisterPage() {
         body: JSON.stringify({ phone: form.phone }),
       });
 
-      router.push(`/verify?phone=${encodeURIComponent(form.phone)}`);
+      const next =
+        role === 'AGENT' ? '/onboarding/agent' : '/listings';
+      router.push(
+        `/verify?phone=${encodeURIComponent(form.phone)}&next=${encodeURIComponent(next)}`,
+      );
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {

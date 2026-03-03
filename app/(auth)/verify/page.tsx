@@ -7,7 +7,8 @@ import { Suspense } from 'react';
 function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const phone = searchParams.get('phone') ?? '';
+  const phone    = searchParams.get('phone') ?? '';
+  const nextPath = searchParams.get('next') ?? '/listings';
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -44,7 +45,7 @@ function VerifyForm() {
       });
       const data = await res.json();
       if (!data.success) { setError(data.error ?? 'Invalid OTP'); return; }
-      router.push('/listings');
+      router.push(nextPath);
     } catch {
       setError('Something went wrong.');
     } finally {
