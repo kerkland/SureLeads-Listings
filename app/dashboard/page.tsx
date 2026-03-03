@@ -141,31 +141,60 @@ function QuickAction({
 /* ─── Agent Dashboard ──────────────────────────────────── */
 
 function AgentDashboard({ user }: { user: User }) {
-  const [listings,  setListings]  = useState<AgentListing[]>([]);
-  const [summary,   setSummary]   = useState<ReconfirmSummary | null>(null);
-  const [loading,   setLoading]   = useState(true);
+  const [listings,          setListings]          = useState<AgentListing[]>([]);
+  const [summary,           setSummary]           = useState<ReconfirmSummary | null>(null);
+  const [reconfirmListings, setReconfirmListings] = useState<{ id: string; status: string }[]>([]);
+  const [loading,           setLoading]           = useState(true);
+  const [reconfirming,      setReconfirming]      = useState(false);
 
-  useEffect(() => {
+  async function load() {
     const token = localStorage.getItem('accessToken');
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-    async function load() {
-      try {
-        const [listingsRes, reconfirmRes] = await Promise.all([
-          fetch(`/api/listings?agentId=${user.id}&limit=20`, { headers }).then(
-            (r) => r.json(),
-          ),
-          fetch('/api/agent/listings/reconfirmation-status', {
-            headers,
-          }).then((r) => r.json()),
-        ]);
-        if (listingsRes.success)  setListings(listingsRes.data ?? []);
-        if (reconfirmRes.success) setSummary(reconfirmRes.data?.summary ?? null);
-      } finally {
-        setLoading(false);
+    try {
+      const [listingsRes, reconfirmRes] = await Promise.all([
+        fetch(`/api/listings?agentId=${user.id}&limit=20`, { headers }).then(
+          (r) => r.json(),
+        ),
+        fetch('/api/agent/listings/reconfirmation-status', {
+          headers,
+        }).then((r) => r.json()),
+      ]);
+      if (listingsRes.success)  setListings(listingsRes.data ?? []);
+      if (reconfirmRes.success) {
+        setSummary(reconfirmRes.data?.summary ?? null);
+        setReconfirmListings(reconfirmRes.data?.listings ?? []);
       }
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
+
+  async function reconfirmAll() {
+    const ids = reconfirmListings
+      .filter((l) => l.status === 'PENDING_RECONFIRMATION' || l.status === 'HIDDEN')
+      .map((l) => l.id);
+    if (!ids.length) return;
+    setReconfirming(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      await fetch('/api/listings/bulk-reconfirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ listingIds: ids }),
+      });
+      await load();
+    } finally {
+      setReconfirming(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -228,11 +257,15 @@ function AgentDashboard({ user }: { user: User }) {
               {pendingConfirm === 1 ? 'it is' : 'they are'} hidden.
             </p>
           </div>
-          <Link href="/dashboard/reconfirmations"
-                className="text-xs font-semibold text-amber-700 whitespace-nowrap
-                           hover:text-amber-900 underline">
-            Reconfirm now →
-          </Link>
+          <button
+            onClick={reconfirmAll}
+            disabled={reconfirming}
+            className="text-xs font-semibold text-amber-700 whitespace-nowrap
+                       hover:text-amber-900 underline disabled:opacity-50
+                       disabled:cursor-not-allowed transition-opacity"
+          >
+            {reconfirming ? 'Reconfirming…' : 'Reconfirm all →'}
+          </button>
         </div>
       )}
 
@@ -250,11 +283,15 @@ function AgentDashboard({ user }: { user: User }) {
               {' '}{hiddenCount === 1 ? 'is' : 'are'} hidden — reactivate within your grace period.
             </p>
           </div>
-          <Link href="/dashboard/reconfirmations"
-                className="text-xs font-semibold text-red-700 whitespace-nowrap
-                           hover:text-red-900 underline">
-            Reactivate →
-          </Link>
+          <button
+            onClick={reconfirmAll}
+            disabled={reconfirming}
+            className="text-xs font-semibold text-red-700 whitespace-nowrap
+                       hover:text-red-900 underline disabled:opacity-50
+                       disabled:cursor-not-allowed transition-opacity"
+          >
+            {reconfirming ? 'Reconfirming…' : 'Reactivate all →'}
+          </button>
         </div>
       )}
 
@@ -278,11 +315,104 @@ function AgentDashboard({ user }: { user: User }) {
         />
       </div>
 
+      {/* ── Performance Panel ── */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold text-sl-slate-500 uppercase
+                       tracking-widest mb-3 px-0.5">
+          Performance
+        </p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+
+          {/* Inspection Requests — live */}
+          <div className="bg-white border border-sl-slate-200 rounded-xl p-5 min-w-0">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 bg-sl-green-50 rounded-lg flex items-center
+                               justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-sl-green-600" fill="none"
+                     stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-xs font-medium text-sl-slate-500 leading-tight">
+                Inspection Requests
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-sl-slate-900">0</p>
+            <p className="text-xs text-sl-slate-400 mt-0.5">this month</p>
+          </div>
+
+          {/* Avg Response Time — live */}
+          <div className="bg-white border border-sl-slate-200 rounded-xl p-5 min-w-0">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center
+                               justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-blue-500" fill="none"
+                     stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-xs font-medium text-sl-slate-500 leading-tight">
+                Avg Response Time
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-sl-slate-300">—</p>
+            <p className="text-xs text-sl-slate-400 mt-0.5">no data yet</p>
+          </div>
+
+          {/* Listing Accuracy Score — future */}
+          <div className="bg-sl-slate-50 border border-sl-slate-200 rounded-xl p-5 min-w-0">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 bg-sl-slate-100 rounded-lg flex items-center
+                               justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-sl-slate-400" fill="none"
+                     stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
+              </div>
+              <p className="text-xs font-medium text-sl-slate-400 leading-tight">
+                Listing Accuracy
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-sl-slate-300">—</p>
+            <span className="inline-block text-xs text-sl-slate-400 bg-sl-slate-100
+                              border border-sl-slate-200 px-2 py-0.5 rounded-full mt-1.5">
+              Coming soon
+            </span>
+          </div>
+
+          {/* User Ratings — future */}
+          <div className="bg-sl-slate-50 border border-sl-slate-200 rounded-xl p-5 min-w-0">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 bg-sl-slate-100 rounded-lg flex items-center
+                               justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-sl-slate-400" fill="none"
+                     stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+              </div>
+              <p className="text-xs font-medium text-sl-slate-400 leading-tight">
+                User Ratings
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-sl-slate-300">—</p>
+            <span className="inline-block text-xs text-sl-slate-400 bg-sl-slate-100
+                              border border-sl-slate-200 px-2 py-0.5 rounded-full mt-1.5">
+              Coming soon
+            </span>
+          </div>
+
+        </div>
+      </div>
+
       {/* ── Two-col layout: listings + quick actions ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Listings table (2/3 width) */}
-        <div className="lg:col-span-2 bg-white border border-sl-slate-200
+        <div className="lg:col-span-2 min-w-0 bg-white border border-sl-slate-200
                          rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-sl-slate-100 flex items-center
                            justify-between">
@@ -381,7 +511,7 @@ function AgentDashboard({ user }: { user: User }) {
         </div>
 
         {/* Quick actions (1/3 width) */}
-        <div className="space-y-3">
+        <div className="space-y-3 min-w-0">
           <p className="text-xs font-semibold text-sl-slate-500 uppercase
                          tracking-widest px-1">
             Quick actions

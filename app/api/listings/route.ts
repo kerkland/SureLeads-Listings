@@ -8,6 +8,7 @@ import { crossPostQueue, priceIndexQueue } from '@/lib/queue';
 // ─── POST /api/listings ───────────────────────────────────────────────────────
 
 const createSchema = z.object({
+  category: z.enum(['FOR_RENT', 'FOR_SALE', 'SHORT_LET']).default('FOR_RENT'),
   title: z.string().min(5).max(200),
   description: z.string().min(20).max(2000),
   propertyType: z.enum(['FLAT', 'DUPLEX', 'ROOM', 'BUNGALOW', 'TERRACED']),
@@ -20,7 +21,7 @@ const createSchema = z.object({
   longitude: z.number().optional(),
   rentPerYear: z.number().int().positive(), // kobo
   inspectionFee: z.number().int().positive(), // kobo
-  photos: z.array(z.string().url()).min(1).max(10),
+  photos: z.array(z.string().min(1)).min(4).max(15),
   photoHashes: z.array(z.string()).default([]),
   tier: z.enum(['BASIC', 'VERIFIED']).default('BASIC'),
 });

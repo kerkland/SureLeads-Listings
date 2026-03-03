@@ -43,6 +43,12 @@ enum ListingTier {
   VERIFIED
 }
 
+enum ListingCategory {
+  FOR_RENT
+  FOR_SALE
+  SHORT_LET
+}
+
 enum CrossPostStatus {
   OPEN
   AGENT_A_WINS
@@ -232,8 +238,9 @@ model Listing {
   inspectionFee      BigInt // stored in kobo
   photos             String[]
   photoHashes        String[]
-  status             ListingStatus @default(AVAILABLE)
-  tier               ListingTier   @default(BASIC)
+  category           ListingCategory @default(FOR_RENT)
+  status             ListingStatus   @default(AVAILABLE)
+  tier               ListingTier     @default(BASIC)
   isCrossPostFlagged Boolean       @default(false)
   isAdminFlagged     Boolean       @default(false)
   viewsCount         Int           @default(0)
