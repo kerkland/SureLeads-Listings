@@ -87,6 +87,7 @@ export async function recalculateCredibility(agentId: string): Promise<void> {
       isVerifiedBadge: true,
       cacNumber: true,
       createdAt: true,
+      scoreOverride: true,  // admin manual override
     },
   });
 
@@ -160,7 +161,12 @@ export async function recalculateCredibility(agentId: string): Promise<void> {
     accountScore +
     subscriptionBonus;
 
-  const newScore = Math.max(0, Math.min(1000, rawScore));
+  // Admin override: if set, use it instead of computed score.
+  // Components are still stored for transparency.
+  const computedScore = Math.max(0, Math.min(1000, rawScore));
+  const newScore = profile.scoreOverride !== null && profile.scoreOverride !== undefined
+    ? Math.max(0, Math.min(1000, profile.scoreOverride))
+    : computedScore;
   const newTier = scoreTotier(newScore);
   const oldScore = profile.credibilityScore;
   const delta = newScore - oldScore;

@@ -44,7 +44,11 @@ export type AdminActionType =
   | 'DISMISS_REVIEW'
   | 'RESOLVE_COMPLAINT'
   | 'FORCE_HIDE_LISTING'
-  | 'APPROVE_AGENT_VERIFICATION';
+  | 'APPROVE_AGENT_VERIFICATION'
+  | 'OVERRIDE_CREDIBILITY_SCORE'
+  | 'PROMOTE_LISTING_TIER'
+  | 'DEMOTE_LISTING_TIER'
+  | 'RESOLVE_CROSS_POST';
 
 export type CredibilityTier = 'UNRATED' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
 
@@ -119,6 +123,10 @@ export interface CredibilityBreakdown {
 
 // ─── Price Insight Response ───────────────────────────────────────────────────
 
+export type PriceTrend = 'UP' | 'DOWN' | 'STABLE';
+
+export type PriceDataQualityFlag = 'DOMINATED_MARKET' | 'SINGLE_AGENT' | 'LOW_VOLUME';
+
 export interface PriceInsightResult {
   available: true;
   city: string;
@@ -131,8 +139,16 @@ export interface PriceInsightResult {
   minRentPerYear: number;
   maxRentPerYear: number;
   listingCount: number;
+  agentCount: number;
   confidenceScore: number;
+  isDominatedMarket: boolean;
+  dataQualityFlags: PriceDataQualityFlag[];
+  trendDirection: PriceTrend | null;
+  priceChangePercent: number | null;   // positive = price went up
+  previousMedianRentPerYear: number | null;
   calculatedAt: string;
+  isFallback?: boolean;
+  fallbackLabel?: string;
 }
 
 export interface PriceInsightUnavailable {

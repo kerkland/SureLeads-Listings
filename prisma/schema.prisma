@@ -89,6 +89,10 @@ enum AdminActionType {
   RESOLVE_COMPLAINT
   FORCE_HIDE_LISTING
   APPROVE_AGENT_VERIFICATION
+  OVERRIDE_CREDIBILITY_SCORE
+  PROMOTE_LISTING_TIER
+  DEMOTE_LISTING_TIER
+  RESOLVE_CROSS_POST
 }
 
 enum CredibilityTier {
@@ -166,6 +170,12 @@ model AgentProfile {
   totalInspectionRequests Int            @default(0)
   respondedInspections  Int              @default(0)
 
+  // Admin credibility override (null = use computed score)
+  scoreOverride       Int?
+  scoreOverrideNote   String?
+  scoreOverriddenAt   DateTime?
+  scoreOverriddenBy   String?   // adminUserId
+
   subscriptionTier      SubscriptionTier @default(STARTER)
   subscriptionExpiresAt DateTime?
   isVerifiedBadge       Boolean          @default(false)
@@ -234,6 +244,7 @@ model Listing {
   reconfirmationMissedCount Int       @default(0)
   hiddenAt                  DateTime?
   pendingReconfirmationAt   DateTime?
+  graceExpiresAt            DateTime? // set when auto-hidden; listing soft-deleted if not reactivated by this date
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -244,6 +255,7 @@ model Listing {
   crossPostFlagsB      CrossPostingFlag[]    @relation("CrossPostListingB")
   videoWalkthrough     VideoWalkthrough?
   reconfirmationRecords ReconfirmationRecord[]
+  priceHistory         ListingPriceHistory[]
   inspections          Inspection[]
   adminActions         AdminAction[]         @relation("ListingAdminActions")
   complaints           Complaint[]
@@ -280,7 +292,7 @@ model Review {
   createdAt       DateTime     @default(now())
 
   inspection  Inspection?  @relation("InspectionReview", fields: [inspectionId], references: [id])
-  adminAction AdminAction? @relation(fields: [id], references: [targetReviewId])
+  adminAction AdminAction? @relation("ReviewAdminAction")
 
   @@index([agentId])
   @@index([listingId])
@@ -356,6 +368,21 @@ model ReconfirmationRecord {
   @@map("reconfirmation_records")
 }
 
+model ListingPriceHistory {
+  id             String   @id @default(uuid())
+  listingId      String
+  listing        Listing  @relation(fields: [listingId], references: [id])
+  oldRentPerYear BigInt   // kobo — value before change
+  newRentPerYear BigInt   // kobo — value after change
+  changedAt      DateTime @default(now())
+  changedBy      String   // agentId (userId)
+  source         String   @default("RECONFIRMATION") // RECONFIRMATION | AGENT_EDIT
+
+  @@index([listingId])
+  @@index([changedAt])
+  @@map("listing_price_history")
+}
+
 model VideoWalkthrough {
   id                 String                 @id @default(uuid())
   listingId          String                 @unique
@@ -375,23 +402,29 @@ model VideoWalkthrough {
 }
 
 model AreaPriceIndex {
-  id                 String       @id @default(uuid())
-  city               String
-  area               String
-  propertyType       PropertyType
-  bedrooms           Int // -1 = aggregated across all bedroom counts
-  medianRentPerYear  BigInt
-  p25RentPerYear     BigInt
-  p75RentPerYear     BigInt
-  minRentPerYear     BigInt
-  maxRentPerYear     BigInt
-  listingCount       Int
-  confidenceScore    Float // 0.0–1.0: min(1.0, listingCount / 20)
-  isPublished        Boolean      @default(false) // false if listingCount < 5
-  calculatedAt       DateTime
-  nextCalculationDue DateTime
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                       String       @id @default(uuid())
+  city                     String
+  area                     String
+  propertyType             PropertyType
+  bedrooms                 Int          // -1 = aggregated across all bedroom counts
+  medianRentPerYear        BigInt
+  p25RentPerYear           BigInt
+  p75RentPerYear           BigInt
+  minRentPerYear           BigInt
+  maxRentPerYear           BigInt
+  listingCount             Int
+  agentCount               Int          @default(0) // distinct agent count
+  confidenceScore          Float        // 0.0–1.0
+  isPublished              Boolean      @default(false) // false if listingCount < 3 or agentCount < 2
+  isDominatedMarket        Boolean      @default(false) // true if one agent supplies >50%
+  dataQualityFlags         String[]     @default([]) // DOMINATED_MARKET | SINGLE_AGENT | LOW_VOLUME
+  trendDirection           String?      // UP | DOWN | STABLE
+  priceChangePercent       Float?       // % change vs previous 30-day window (positive = up)
+  previousMedianRentPerYear BigInt?     // previous window median (kobo) for display
+  calculatedAt             DateTime
+  nextCalculationDue       DateTime
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
 
   @@unique([city, area, propertyType, bedrooms])
   @@index([city, area])
@@ -442,8 +475,8 @@ model AdminAction {
   targetListing   Listing?        @relation("ListingAdminActions", fields: [targetListingId], references: [id])
   targetAgentId   String?
   targetAgent     AgentProfile?   @relation("AgentAdminActions", fields: [targetAgentId], references: [id])
-  targetReviewId  String?
-  targetReview    Review?         @relation(fields: [targetReviewId], references: [id])
+  targetReviewId  String?         @unique
+  targetReview    Review?         @relation("ReviewAdminAction", fields: [targetReviewId], references: [id])
   targetComplaintId String?
   targetComplaint   Complaint?    @relation(fields: [targetComplaintId], references: [id])
   reason          String?

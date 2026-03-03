@@ -2,38 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken } from './jwt';
 import type { JWTPayload, Role } from '@/types';
 
-export interface AuthenticatedRequest extends NextRequest {
-  user: JWTPayload;
-}
+/**
+ * Inline auth middleware.
+ * Usage (all routes):
+ *   return withAuth(req, ['ADMIN'], async (user) => { ... });
+ *
+ * Verifies the Bearer token, checks the role, then calls handler with the
+ * decoded JWT payload. Returns 401/403 JSON on failure.
+ */
+export async function withAuth(
+  req: NextRequest,
+  allowedRoles: Role[],
+  handler: (user: JWTPayload) => Promise<NextResponse>,
+): Promise<NextResponse> {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return NextResponse.json(
+      { success: false, error: 'Missing or invalid Authorization header' },
+      { status: 401 },
+    );
+  }
 
-// Using unknown-indexed params to be compatible with all dynamic route patterns
-type RouteHandler = (req: AuthenticatedRequest, ctx: { params: Record<string, string> }) => Promise<NextResponse>;
+  const token = authHeader.slice(7);
+  try {
+    const payload = verifyAccessToken(token);
 
-export function withAuth(handler: RouteHandler, allowedRoles?: Role[]) {
-  return async (req: NextRequest, ctx: { params: Record<string, string> }) => {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Missing or invalid Authorization header' },
-        { status: 401 }
-      );
+    if (allowedRoles.length > 0 && !allowedRoles.includes(payload.role)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const token = authHeader.slice(7);
-    try {
-      const payload = verifyAccessToken(token);
-
-      if (allowedRoles && !allowedRoles.includes(payload.role)) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-      }
-
-      (req as AuthenticatedRequest).user = payload;
-      return handler(req as AuthenticatedRequest, ctx);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-  };
+    return handler(payload);
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid or expired token' },
+      { status: 401 },
+    );
+  }
 }
