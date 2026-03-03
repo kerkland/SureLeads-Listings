@@ -135,7 +135,7 @@ export default function PriceInsightsPage() {
         {/* ── Search form ── */}
         <div className="bg-white border border-sl-slate-200 rounded-2xl p-6">
           <form onSubmit={search} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="label">Area / Neighbourhood</label>
                 <select value={area} onChange={(e) => setArea(e.target.value)} className="select w-full">
@@ -143,8 +143,6 @@ export default function PriceInsightsPage() {
                   {AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Property Type</label>
                 <select
