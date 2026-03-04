@@ -34,10 +34,10 @@ export default function CredibilityBreakdownPanel({ breakdown }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <div className="text-4xl font-bold text-gray-900">{total}</div>
+        <div className="text-4xl font-bold text-sl-slate-900">{total}</div>
         <div>
           <CredibilityBadge score={total} tier={tier} />
-          <p className="text-sm text-gray-500 mt-1">{TIER_LABEL[tier]}</p>
+          <p className="text-sm text-sl-slate-500 mt-1">{TIER_LABEL[tier]}</p>
         </div>
       </div>
 
@@ -45,12 +45,12 @@ export default function CredibilityBreakdownPanel({ breakdown }: Props) {
         {bars.map((bar) => (
           <div key={bar.label}>
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-700">{bar.label}</span>
-              <span className="font-medium text-gray-900">
+              <span className="text-sl-slate-600">{bar.label}</span>
+              <span className="font-medium text-sl-slate-900">
                 {bar.value} / {bar.max}
               </span>
             </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-sl-slate-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${bar.color}`}
                 style={{ width: `${Math.min(100, (bar.value / bar.max) * 100)}%` }}

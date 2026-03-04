@@ -29,6 +29,23 @@ export async function GET(
     return NextResponse.json({ success: false, error: 'Agent not found' }, { status: 404 });
   }
 
+  /* Active listings for this agent (up to 6 shown on profile) */
+  const [activeListings, totalActiveListings] = await Promise.all([
+    prisma.listing.findMany({
+      where: { agentId: agent.userId, status: 'AVAILABLE' },
+      orderBy: [{ tier: 'desc' }, { createdAt: 'desc' }],
+      take: 6,
+      select: {
+        id: true, title: true, city: true, area: true,
+        bedrooms: true, bathrooms: true, propertyType: true,
+        rentPerYear: true, photos: true, tier: true, lastReconfirmedAt: true,
+      },
+    }),
+    prisma.listing.count({
+      where: { agentId: agent.userId, status: 'AVAILABLE' },
+    }),
+  ]);
+
   const breakdown = buildBreakdown(agent);
 
   return NextResponse.json({
@@ -42,13 +59,16 @@ export async function GET(
       bio: agent.bio,
       profilePhoto: agent.profilePhoto,
       isVerifiedBadge: agent.isVerifiedBadge,
+      subscriptionTier: agent.subscriptionTier,
       credibilityScore: agent.credibilityScore,
       credibilityTier: agent.credibilityTier,
       credibilityBreakdown: breakdown,
       memberSince: agent.user.createdAt,
       reviewCount: agent._count.reviewsReceived,
       completedInspections: agent._count.inspectionsAsAgent,
+      totalActiveListings,
       recentReviews: agent.reviewsReceived,
+      activeListings,
     },
   });
 }

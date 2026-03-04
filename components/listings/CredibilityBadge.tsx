@@ -7,11 +7,11 @@ interface Props {
 }
 
 const TIER_CONFIG: Record<CredibilityTier, { label: string; classes: string }> = {
-  UNRATED: { label: 'New', classes: 'bg-gray-100 text-gray-600 border-gray-300' },
-  BRONZE: { label: 'Bronze', classes: 'bg-orange-100 text-orange-700 border-orange-300' },
-  SILVER: { label: 'Silver', classes: 'bg-slate-100 text-slate-700 border-slate-300' },
-  GOLD: { label: 'Gold', classes: 'bg-yellow-100 text-yellow-700 border-yellow-400' },
-  PLATINUM: { label: 'Platinum', classes: 'bg-teal-100 text-teal-700 border-teal-400' },
+  UNRATED:  { label: 'New',      classes: 'bg-sl-slate-100 text-sl-slate-500 border-sl-slate-200' },
+  BRONZE:   { label: 'Bronze',   classes: 'bg-orange-50 text-orange-600 border-orange-200' },
+  SILVER:   { label: 'Silver',   classes: 'bg-sl-slate-100 text-sl-slate-600 border-sl-slate-300' },
+  GOLD:     { label: 'Gold',     classes: 'bg-sl-gold-50 text-sl-gold-700 border-sl-gold-200' },
+  PLATINUM: { label: 'Platinum', classes: 'bg-purple-50 text-purple-700 border-purple-200' },
 };
 
 export default function CredibilityBadge({ score, tier, showScore = false }: Props) {
