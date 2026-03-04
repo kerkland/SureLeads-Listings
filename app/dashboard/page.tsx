@@ -31,6 +31,56 @@ interface ReconfirmSummary {
   complianceRate?:       number;
 }
 
+/* ─── Client-specific types ────────────────────────────── */
+
+interface ClientInspection {
+  id:            string;
+  status:        'REQUESTED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  proposedDate:  string | null;
+  confirmedDate: string | null;
+  requestedAt:   string;
+  completedAt:   string | null;
+  cancelledAt:   string | null;
+  listing: {
+    id:           string;
+    title:        string;
+    area:         string;
+    city:         string;
+    photos:       string[];
+    propertyType: string;
+    bedrooms:     number;
+  };
+  agent: {
+    id:              string;
+    agencyName:      string | null;
+    profilePhoto:    string | null;
+    isVerifiedBadge: boolean;
+    user:            { fullName: string };
+  };
+  review: { id: string } | null;
+}
+
+interface ClientReview {
+  id:        string;
+  rating:    number;
+  body:      string | null;
+  createdAt: string;
+  listing:   { id: string; title: string; area: string; city: string };
+  agent:     { agencyName: string | null; user: { fullName: string } };
+}
+
+interface ClientDashData {
+  summary: {
+    totalInspections:    number;
+    upcomingInspections: number;
+    completedInspections: number;
+    reviewsWritten:      number;
+  };
+  upcomingInspections: ClientInspection[];
+  pastInspections:     ClientInspection[];
+  recentReviews:       ClientReview[];
+}
+
 /* ─── Helpers ──────────────────────────────────────────── */
 
 function daysUntil(dateStr: string | null): number | null {
@@ -602,40 +652,334 @@ function AgentDashboard({ user }: { user: User }) {
   );
 }
 
+/* ─── Client Dashboard helpers ─────────────────────────── */
+
+const INSPECTION_STATUS: Record<string, { label: string; classes: string }> = {
+  REQUESTED: { label: 'Awaiting confirmation', classes: 'bg-amber-50 text-amber-700' },
+  CONFIRMED: { label: 'Confirmed',             classes: 'bg-sl-green-50 text-sl-green-700' },
+  COMPLETED: { label: 'Completed',             classes: 'bg-blue-50 text-blue-700' },
+  CANCELLED: { label: 'Cancelled',             classes: 'bg-sl-slate-100 text-sl-slate-500' },
+  NO_SHOW:   { label: 'No-show',               classes: 'bg-red-50 text-red-700' },
+};
+
+function fmtDate(dateStr: string | null): string {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  });
+}
+
+function Stars({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <svg key={i} className={`w-3.5 h-3.5 ${i < rating ? 'text-sl-gold-500' : 'text-sl-slate-200'}`}
+             viewBox="0 0 20 20" fill="currentColor">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+function InspectionCard({ item }: { item: ClientInspection }) {
+  const st    = INSPECTION_STATUS[item.status] ?? { label: item.status, classes: 'bg-sl-slate-100 text-sl-slate-500' };
+  const photo = item.listing.photos[0];
+  const date  = item.confirmedDate ?? item.proposedDate;
+
+  return (
+    <div className="bg-white border border-sl-slate-200 rounded-xl overflow-hidden flex
+                     hover:border-sl-green-200 hover:shadow-card transition-all">
+      {/* Photo */}
+      <div className="w-24 sm:w-32 flex-shrink-0 bg-sl-slate-100">
+        {photo ? (
+          <img src={photo} alt={item.listing.title}
+               className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full min-h-[96px] flex items-center justify-center">
+            <svg className="w-8 h-8 text-sl-slate-300" fill="none"
+                 stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 p-4 min-w-0">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <p className="font-semibold text-sl-slate-900 text-sm truncate">{item.listing.title}</p>
+            <p className="text-xs text-sl-slate-500 mt-0.5">{item.listing.area}, {item.listing.city}</p>
+          </div>
+          <span className={`text-xs font-medium px-2 py-1 rounded-full flex-shrink-0 ${st.classes}`}>
+            {st.label}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-sl-slate-500">
+          <span>
+            Agent:{' '}
+            <span className="text-sl-slate-700 font-medium">{item.agent.user.fullName}</span>
+            {item.agent.agencyName && (
+              <span className="text-sl-slate-400"> · {item.agent.agencyName}</span>
+            )}
+          </span>
+          {date && (
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {fmtDate(date)}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4 mt-3">
+          <Link href={`/listings/${item.listing.id}`}
+                className="text-xs font-medium text-sl-green-600 hover:underline">
+            View listing →
+          </Link>
+          {item.status === 'COMPLETED' && !item.review && (
+            <Link href={`/listings/${item.listing.id}#review`}
+                  className="text-xs font-medium text-amber-600 hover:underline">
+              Leave a review →
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Client Dashboard ─────────────────────────────────── */
 
 function ClientDashboard({ user }: { user: User }) {
+  const [data,    setData]    = useState<ClientDashData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    fetch('/api/user/dashboard', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((res) => { if (res.success) setData(res.data); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  /* greeting */
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-sm text-sl-slate-400 animate-pulse">Loading…</div>
+      </div>
+    );
+  }
+
+  const sum      = data?.summary;
+  const upcoming = data?.upcomingInspections ?? [];
+  const past     = data?.pastInspections     ?? [];
+  const reviews  = data?.recentReviews       ?? [];
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+      {/* ── Page header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-sl-slate-900">My Dashboard</h1>
+          <p className="text-xs font-semibold text-sl-green-500 uppercase tracking-widest mb-1">
+            Overview
+          </p>
+          <h1 className="text-2xl font-bold text-sl-slate-900">
+            {greeting}, {user.fullName.split(' ')[0]}
+          </h1>
           <p className="text-sm text-sl-slate-500 mt-1">
-            Welcome back, {user.fullName}
+            {"Here's"} a summary of your property search activity.
           </p>
         </div>
-        <Link href="/listings" className="btn-md btn-primary">
+        <Link href="/listings" className="btn-md btn-primary whitespace-nowrap">
           Browse properties
         </Link>
       </div>
-      <div className="bg-white border border-sl-slate-200 rounded-xl p-12 text-center">
-        <div className="w-14 h-14 bg-sl-green-50 rounded-2xl flex items-center
-                         justify-center mx-auto mb-4">
-          <svg className="w-7 h-7 text-sl-green-600" fill="none"
-               stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
+
+      {/* ── Stat tiles ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <StatTile label="Total bookings"   value={sum?.totalInspections    ?? 0} />
+        <StatTile
+          label="Upcoming"
+          value={sum?.upcomingInspections ?? 0}
+          accent={sum?.upcomingInspections ? 'green' : undefined}
+        />
+        <StatTile label="Completed visits" value={sum?.completedInspections ?? 0} />
+        <StatTile label="Reviews written"  value={sum?.reviewsWritten       ?? 0} />
+      </div>
+
+      {/* ── Two-col layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Left: inspections (2/3) */}
+        <div className="lg:col-span-2 space-y-6 min-w-0">
+
+          {/* Upcoming inspections */}
+          <div>
+            <div className="flex items-center justify-between mb-3 px-0.5">
+              <p className="text-xs font-semibold text-sl-slate-500 uppercase tracking-widest">
+                Upcoming Inspections
+              </p>
+              {upcoming.length > 0 && (
+                <span className="text-xs bg-sl-green-50 text-sl-green-700 border
+                                   border-sl-green-200 px-2 py-0.5 rounded-full font-medium">
+                  {upcoming.length} scheduled
+                </span>
+              )}
+            </div>
+
+            {upcoming.length === 0 ? (
+              <div className="bg-white border border-sl-slate-200 rounded-xl px-5 py-12 text-center">
+                <div className="w-12 h-12 bg-sl-green-50 rounded-xl flex items-center
+                                 justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-sl-green-400" fill="none"
+                       stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-sl-slate-700 mb-1">
+                  No upcoming inspections
+                </p>
+                <p className="text-xs text-sl-slate-400 mb-5">
+                  Find a listing you love and book a viewing.
+                </p>
+                <Link href="/listings" className="btn-md btn-primary">
+                  Browse listings
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcoming.map((item) => (
+                  <InspectionCard key={item.id} item={item} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Past inspections */}
+          {past.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-sl-slate-500 uppercase
+                             tracking-widest mb-3 px-0.5">
+                Past Inspections
+              </p>
+              <div className="bg-white border border-sl-slate-200 rounded-xl overflow-hidden">
+                {past.map((item, idx) => {
+                  const st   = INSPECTION_STATUS[item.status] ?? { label: item.status, classes: 'bg-sl-slate-100 text-sl-slate-500' };
+                  const date = item.completedAt ?? item.cancelledAt ?? item.requestedAt;
+                  return (
+                    <div key={item.id}
+                         className={`flex items-center gap-4 px-5 py-3.5 ${
+                           idx > 0 ? 'border-t border-sl-slate-50' : ''
+                         }`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-sl-slate-900 truncate">
+                          {item.listing.title}
+                        </p>
+                        <p className="text-xs text-sl-slate-500 mt-0.5">
+                          {item.listing.area} · {fmtDate(date)}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full
+                                        flex-shrink-0 ${st.classes}`}>
+                        {st.label}
+                      </span>
+                      <Link href={`/listings/${item.listing.id}`}
+                            className="text-xs text-sl-green-600 hover:underline flex-shrink-0">
+                        View
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
-        <h3 className="text-lg font-semibold text-sl-slate-900 mb-2">
-          Find your next home
-        </h3>
-        <p className="text-sm text-sl-slate-400 mb-6">
-          Browse verified listings and contact trusted agents directly.
-        </p>
-        <Link href="/listings" className="btn-lg btn-primary">
-          Browse properties
-        </Link>
+
+        {/* Right sidebar (1/3) */}
+        <div className="space-y-4 min-w-0">
+          <p className="text-xs font-semibold text-sl-slate-500 uppercase tracking-widest px-1">
+            Quick actions
+          </p>
+
+          <QuickAction
+            href="/listings"
+            title="Browse listings"
+            desc="Search verified properties across Lagos."
+            icon={
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            }
+          />
+
+          <QuickAction
+            href="/dashboard/profile"
+            title="Edit profile"
+            desc="Update your name, phone number, and preferences."
+            icon={
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            }
+          />
+
+          {/* Reviews written */}
+          {reviews.length > 0 && (
+            <div className="bg-white border border-sl-slate-200 rounded-xl p-5">
+              <p className="text-xs font-semibold text-sl-slate-500 uppercase
+                             tracking-widest mb-4">
+                Your Reviews
+              </p>
+              <div className="space-y-4">
+                {reviews.map((r) => (
+                  <div key={r.id}
+                       className="border-b border-sl-slate-50 last:border-0 pb-4 last:pb-0">
+                    <Stars rating={r.rating} />
+                    <p className="text-xs font-semibold text-sl-slate-900 mt-1.5 truncate">
+                      {r.listing.title}
+                    </p>
+                    <p className="text-xs text-sl-slate-400 mt-0.5">
+                      {r.agent.user.fullName}
+                      {r.agent.agencyName ? ` · ${r.agent.agencyName}` : ''}
+                    </p>
+                    {r.body && (
+                      <p className="text-xs text-sl-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                        {r.body}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty reviews prompt */}
+          {reviews.length === 0 && past.some((i) => i.status === 'COMPLETED') && (
+            <div className="bg-sl-gold-50 border border-sl-gold-200 rounded-xl p-5">
+              <p className="text-xs font-semibold text-sl-gold-700 mb-1">
+                Share your experience
+              </p>
+              <p className="text-xs text-sl-gold-600 mb-3 leading-relaxed">
+                You{"'"}ve completed a viewing — leave a review to help other renters.
+              </p>
+              <Link href="/listings" className="text-xs font-semibold text-sl-gold-700 hover:underline">
+                Find completed visits →
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
