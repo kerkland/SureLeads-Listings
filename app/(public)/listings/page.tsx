@@ -7,6 +7,7 @@ import { MOCK_LISTINGS } from '@/lib/mockData';
 
 interface SearchProps {
   searchParams: {
+    category?: string;
     city?: string;
     area?: string;
     bedrooms?: string;
@@ -57,6 +58,7 @@ export default async function ListingsPage({ searchParams }: SearchProps) {
     page:  searchParams.page  ?? '1',
     limit: '24',
   };
+  if (searchParams.category)     params.category     = searchParams.category;
   if (searchParams.city)         params.city         = searchParams.city;
   if (searchParams.bedrooms)     params.bedrooms     = searchParams.bedrooms;
   if (searchParams.minRent)      params.minRent      = searchParams.minRent;
@@ -67,6 +69,10 @@ export default async function ListingsPage({ searchParams }: SearchProps) {
 
   const { data: listings, total, page, totalPages } = await fetchListings(params);
 
+  const CAT_LABEL: Record<string, string> = {
+    FOR_RENT: 'For Rent', FOR_SALE: 'For Sale', SHORT_LET: 'Short Let',
+  };
+
   const chips = [
     searchParams.city         && `City: ${searchParams.city}`,
     searchParams.bedrooms     && `${searchParams.bedrooms}+ beds`,
@@ -75,7 +81,9 @@ export default async function ListingsPage({ searchParams }: SearchProps) {
   ].filter(Boolean) as string[];
 
   const pageTitle = searchParams.city
-    ? `Properties in ${searchParams.city}`
+    ? `${CAT_LABEL[searchParams.category ?? ''] ?? 'Properties'} in ${searchParams.city}`
+    : searchParams.category
+    ? `${CAT_LABEL[searchParams.category]} listings`
     : 'All properties';
 
   return (

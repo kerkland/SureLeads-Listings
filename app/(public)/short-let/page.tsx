@@ -6,54 +6,54 @@ const BENEFITS = [
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
         d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     ),
-    title: 'Verified Listings Only',
-    body: "Every listing is reconfirmed weekly by the agent. If it's on SureLeads, it's available.",
+    title: 'Fully furnished',
+    body: 'Every short-let listing includes furniture, appliances, and utilities. Move in with just your bags.',
+  },
+  {
+    icon: (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    ),
+    title: 'Flexible duration',
+    body: 'Book for a week, a month, or longer. No 1-year lock-in. Perfect for relocations and work trips.',
   },
   {
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
         d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     ),
-    title: 'Credibility Scores',
-    body: 'See each agent\'s verified score — built from inspection rates, reviews, and weekly compliance.',
+    title: 'Verified agents',
+    body: 'Every host carries a public credibility score. Know exactly who you\'re dealing with before you book.',
   },
   {
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
         d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
     ),
-    title: 'Price Intelligence',
-    body: 'Area price benchmarks let you know if you\'re paying a fair rate before you commit.',
-  },
-  {
-    icon: (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-    ),
-    title: 'No Ghost Properties',
-    body: 'Listings that miss weekly reconfirmation are automatically removed. No more wasted trips.',
+    title: 'Transparent pricing',
+    body: 'All-inclusive monthly pricing. No hidden fees. Compare area rates with our price insights tool.',
   },
 ];
 
 const STEPS = [
-  { n: '01', title: 'Search your area', body: 'Browse verified listings across Lagos by area, bedrooms, price, or property type.' },
-  { n: '02', title: 'Check the agent score', body: 'Review the agent\'s credibility score, response rate, and past reviews before reaching out.' },
-  { n: '03', title: 'Book an inspection', body: 'Request a viewing directly on the platform. Agents are required to respond within 24 hours.' },
-  { n: '04', title: 'Move in with confidence', body: 'Your listing was reconfirmed this week. What you see is what exists.' },
+  { n: '01', title: 'Search by area & dates', body: 'Browse short-let listings across Lagos filtered by location, size, and monthly budget.' },
+  { n: '02', title: 'Check the agent score', body: "Review the host's credibility score, past reviews, and response rate before reaching out." },
+  { n: '03', title: 'Book your viewing', body: 'Request an inspection directly on the platform. Agents respond within 24 hours.' },
+  { n: '04', title: 'Move in', body: 'Property confirmed available this week. What you see is what you get — fully furnished and ready.' },
 ];
 
 const AREAS = [
-  { name: 'Lekki Phase 1', listings: 84, from: '₦1.8M' },
-  { name: 'Victoria Island', listings: 62, from: '₦3.2M' },
-  { name: 'Ikoyi', listings: 48, from: '₦4.0M' },
-  { name: 'Ikeja GRA', listings: 71, from: '₦1.5M' },
-  { name: 'Surulere', listings: 93, from: '₦600K' },
-  { name: 'Yaba', listings: 57, from: '₦700K' },
-  { name: 'Ajah', listings: 66, from: '₦900K' },
-  { name: 'Gbagada', listings: 45, from: '₦1.1M' },
+  { name: 'Victoria Island', listings: 38, from: '₦450K/mo' },
+  { name: 'Ikoyi',           listings: 27, from: '₦380K/mo' },
+  { name: 'Lekki Phase 1',   listings: 52, from: '₦220K/mo' },
+  { name: 'Banana Island',   listings: 11, from: '₦800K/mo' },
+  { name: 'Ikeja GRA',       listings: 19, from: '₦180K/mo' },
+  { name: 'Oniru',           listings: 14, from: '₦300K/mo' },
+  { name: 'Eko Atlantic',    listings: 9,  from: '₦650K/mo' },
+  { name: 'Chevron',         listings: 23, from: '₦160K/mo' },
 ];
 
-export default function RentPage() {
+export default function ShortLetPage() {
   return (
     <div className="min-h-screen">
 
@@ -62,20 +62,20 @@ export default function RentPage() {
         <div className="max-w-5xl mx-auto px-4 py-20 text-center">
           <div className="inline-flex items-center gap-2 bg-white border border-sl-slate-200
                           rounded-full px-3.5 py-1.5 text-xs font-medium text-sl-slate-600 mb-6">
-            <span className="w-1.5 h-1.5 bg-sl-green-500 rounded-full animate-pulse-slow" />
-            Lagos State — verified rentals only
+            <span className="w-1.5 h-1.5 bg-sl-gold-400 rounded-full animate-pulse-slow" />
+            Furnished · Flexible · Lagos State
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-sl-slate-900 leading-tight tracking-tight mb-5">
-            Find your next home<br />
-            <span className="text-sl-green-500">without the runaround.</span>
+            Short lets in Lagos<br />
+            <span className="text-sl-green-500">no long-term commitment.</span>
           </h1>
           <p className="text-lg text-sl-slate-500 max-w-xl mx-auto mb-10 leading-relaxed">
-            Every listing on SureLeads is reconfirmed weekly. No ghost properties,
-            no misleading photos, no wasted inspections.
+            Fully furnished apartments and houses across Lagos State — weekly
+            reconfirmed, verified agents, transparent monthly pricing.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/listings?category=FOR_RENT" className="btn-lg btn-primary">
-              Browse rentals
+            <Link href="/listings?category=SHORT_LET" className="btn-lg btn-primary">
+              Browse short lets
             </Link>
             <Link href="/price-insights" className="btn-lg btn-secondary">
               Check area prices
@@ -92,7 +92,7 @@ export default function RentPage() {
               Why SureLeads
             </p>
             <h2 className="text-2xl font-bold text-sl-slate-900">
-              Renting in Lagos, done right
+              Short-term stays, done right
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -121,7 +121,7 @@ export default function RentPage() {
               </p>
               <h2 className="text-2xl font-bold text-sl-slate-900">Browse by neighbourhood</h2>
             </div>
-            <Link href="/listings?category=FOR_RENT"
+            <Link href="/listings?category=SHORT_LET"
                   className="text-sm font-medium text-sl-green-600 hover:text-sl-green-700 transition-colors">
               View all →
             </Link>
@@ -130,7 +130,7 @@ export default function RentPage() {
             {AREAS.map((a) => (
               <Link
                 key={a.name}
-                href={`/listings?category=FOR_RENT&area=${encodeURIComponent(a.name)}`}
+                href={`/listings?category=SHORT_LET&area=${encodeURIComponent(a.name)}`}
                 className="bg-white border border-sl-slate-200 rounded-xl p-5
                            hover:border-sl-green-300 hover:shadow-card transition-all group"
               >
@@ -139,7 +139,7 @@ export default function RentPage() {
                   {a.name}
                 </p>
                 <p className="text-xs text-sl-slate-500">{a.listings} listings</p>
-                <p className="text-xs text-sl-slate-400 mt-1">From {a.from}/yr</p>
+                <p className="text-xs text-sl-slate-400 mt-1">From {a.from}</p>
               </Link>
             ))}
           </div>
@@ -175,19 +175,21 @@ export default function RentPage() {
       {/* ── CTA ── */}
       <section className="py-20 px-4 bg-sl-slate-900">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-2xl font-bold text-white mb-3">Ready to find your home?</h2>
+          <h2 className="text-2xl font-bold text-white mb-3">
+            Need a place for a week, month, or longer?
+          </h2>
           <p className="text-sm text-sl-slate-400 mb-8 leading-relaxed">
-            Join thousands of Lagos renters who found their home through SureLeads —
-            no agents calling non-stop, no ghost properties.
+            Browse verified short-let apartments across Lagos State — no ghost listings,
+            no wasted trips, no hidden charges.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/register" className="btn-lg btn-primary">
-              Create free account
+            <Link href="/listings?category=SHORT_LET" className="btn-lg btn-primary">
+              Browse short lets
             </Link>
-            <Link href="/listings?category=FOR_RENT"
+            <Link href="/register"
                   className="btn-lg border border-sl-slate-700 text-sl-slate-300
                              rounded-lg hover:border-sl-slate-500 hover:text-white transition-colors">
-              Browse without signing up
+              Create free account
             </Link>
           </div>
         </div>

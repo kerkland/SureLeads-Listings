@@ -26,6 +26,13 @@ const SORT_OPTIONS = [
   { value: 'credibility',label: 'Top agents first'     },
 ];
 
+const CATEGORIES = [
+  { value: '',          label: 'All'       },
+  { value: 'FOR_RENT',  label: 'For Rent'  },
+  { value: 'FOR_SALE',  label: 'For Sale'  },
+  { value: 'SHORT_LET', label: 'Short Let' },
+];
+
 const SELECT_CLS =
   'text-sm border border-sl-slate-200 rounded-lg px-3 py-2 bg-white ' +
   'focus:outline-none focus:ring-2 focus:ring-sl-green-500 text-sl-slate-700 ' +
@@ -46,6 +53,7 @@ export default function ListingsFilterBar() {
     [router, searchParams],
   );
 
+  const category     = searchParams.get('category')     ?? '';
   const area         = searchParams.get('area')         ?? '';
   const bedrooms     = searchParams.get('bedrooms')     ?? '';
   const propertyType = searchParams.get('propertyType') ?? '';
@@ -56,6 +64,28 @@ export default function ListingsFilterBar() {
 
   return (
     <div className="bg-white border-b border-sl-slate-200 sticky top-14 z-40">
+      {/* Category tabs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-sl-slate-100">
+        <div className="flex gap-0 overflow-x-auto no-scrollbar">
+          {CATEGORIES.map((cat) => {
+            const active = category === cat.value;
+            return (
+              <button
+                key={cat.value}
+                onClick={() => update('category', cat.value)}
+                className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  active
+                    ? 'text-sl-slate-900 border-sl-green-500'
+                    : 'text-sl-slate-500 border-transparent hover:text-sl-slate-700 hover:border-sl-slate-300'
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2 py-3 overflow-x-auto no-scrollbar">
 
@@ -143,3 +173,4 @@ export default function ListingsFilterBar() {
     </div>
   );
 }
+

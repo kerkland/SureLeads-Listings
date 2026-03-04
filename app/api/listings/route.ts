@@ -73,6 +73,7 @@ const searchSchema = z.object({
   bedrooms: z.coerce.number().int().optional(),
   minRent: z.coerce.number().int().optional(),
   maxRent: z.coerce.number().int().optional(),
+  category: z.enum(['FOR_RENT', 'FOR_SALE', 'SHORT_LET']).optional(),
   propertyType: z.enum(['FLAT', 'DUPLEX', 'ROOM', 'BUNGALOW', 'TERRACED']).optional(),
   tier: z.enum(['BASIC', 'VERIFIED']).optional(),
   sortBy: z.enum(['newest', 'credibility', 'price_asc', 'price_desc']).default('newest'),
@@ -92,13 +93,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { city, area, bedrooms, minRent, maxRent, propertyType, tier, sortBy, page, limit } =
+    const { category, city, area, bedrooms, minRent, maxRent, propertyType, tier, sortBy, page, limit } =
       parsed.data;
     const skip = (page - 1) * limit;
 
     const where = {
       status: 'AVAILABLE' as const,
       deletedAt: null,
+      ...(category ? { category } : {}),
       ...(city ? { city: { contains: city, mode: 'insensitive' as const } } : {}),
       ...(area ? { area: { contains: area, mode: 'insensitive' as const } } : {}),
       ...(bedrooms !== undefined ? { bedrooms } : {}),
@@ -147,6 +149,7 @@ export async function GET(req: NextRequest) {
         Prisma.sql`l.status = 'AVAILABLE'`,
         Prisma.sql`l."deletedAt" IS NULL`,
       ];
+      if (category)      sqlConditions.push(Prisma.sql`l.category::text = ${category}`);
       if (city)          sqlConditions.push(Prisma.sql`l.city ILIKE ${'%' + city + '%'}`);
       if (area)          sqlConditions.push(Prisma.sql`l.area ILIKE ${'%' + area + '%'}`);
       if (bedrooms !== undefined) sqlConditions.push(Prisma.sql`l.bedrooms = ${bedrooms}`);
