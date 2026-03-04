@@ -1,25 +1,55 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ARTICLES, getArticle } from '../_data';
+import type { Article } from '../_data';
 
 interface Props {
   params: { slug: string };
 }
 
+// Static params for pre-built static articles; DB articles are dynamic
 export function generateStaticParams() {
   return ARTICLES.map((a) => ({ slug: a.slug }));
 }
 
-export default function ArticlePage({ params }: Props) {
-  const article = getArticle(params.slug);
+async function fetchArticle(slug: string): Promise<Article | null> {
+  try {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const res  = await fetch(`${base}/api/news/${encodeURIComponent(slug)}`, { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) return json.data as Article;
+    }
+  } catch { /* fall through */ }
+  return null;
+}
+
+async function fetchAllArticles(): Promise<Article[]> {
+  try {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const res  = await fetch(`${base}/api/news`, { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data?.length > 0) return json.data as Article[];
+    }
+  } catch { /* fall through */ }
+  return ARTICLES;
+}
+
+export default async function ArticlePage({ params }: Props) {
+  // Try DB first, then fall back to static data
+  let article: Article | null = await fetchArticle(params.slug);
+  if (!article) article = getArticle(params.slug) ?? null;
   if (!article) notFound();
 
+  const allArticles = await fetchAllArticles();
+
   /* related: same category first, then fill with others */
-  const related = ARTICLES.filter(
-    (a) => a.slug !== article.slug && a.category === article.category,
+  const related = allArticles.filter(
+    (a) => a.slug !== article!.slug && a.category === article!.category,
   ).slice(0, 2);
-  const others = ARTICLES.filter(
-    (a) => a.slug !== article.slug && !related.find((r) => r.slug === a.slug),
+  const others = allArticles.filter(
+    (a) => a.slug !== article!.slug && !related.find((r) => r.slug === a.slug),
   ).slice(0, 3 - related.length);
   const sideArticles = [...related, ...others].slice(0, 3);
 

@@ -540,3 +540,22 @@ model CredibilityLog {
   @@index([createdAt])
   @@map("credibility_logs")
 }
+
+model NewsPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  excerpt     String    @db.Text
+  body        Json      // string[] — array of paragraphs
+  category    String
+  coverImage  String?   @db.Text  // base64 data URL, compressed
+  featured    Boolean   @default(false)
+  published   Boolean   @default(false)
+  readTime    String    @default("5 min read")
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([published, publishedAt])
+  @@map("news_posts")
+}

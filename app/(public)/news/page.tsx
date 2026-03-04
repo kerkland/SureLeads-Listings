@@ -1,10 +1,24 @@
 import Link from 'next/link';
 import { ARTICLES } from './_data';
+import type { Article } from './_data';
 
 const CATEGORIES = ['All', 'Market Report', 'Price Trends', 'Area Guide', 'Renter Guide', 'Platform'];
 
-export default function NewsPage() {
-  const [featured, ...rest] = ARTICLES;
+async function fetchArticles(): Promise<Article[]> {
+  try {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const res  = await fetch(`${base}/api/news`, { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data?.length > 0) return json.data as Article[];
+    }
+  } catch { /* fall through */ }
+  return ARTICLES;
+}
+
+export default async function NewsPage() {
+  const articles              = await fetchArticles();
+  const [featured, ...rest]   = articles;
 
   return (
     <div className="min-h-screen bg-sl-slate-50">
