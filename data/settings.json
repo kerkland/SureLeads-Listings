@@ -1,0 +1,23 @@
+{
+  "reconfirmationDays": 7,
+  "gracePeriodDays": 5,
+  "priceThresholdMultiplier": 3.0,
+  "maxListingsPerTier": {
+    "STARTER": 5,
+    "PROFESSIONAL": 20,
+    "AGENCY": 100
+  },
+  "inspectionResponseHours": 24,
+  "featuredAreas": [
+    "Lekki Phase 1",
+    "Victoria Island",
+    "Ikoyi",
+    "Ikeja GRA",
+    "Surulere",
+    "Yaba",
+    "Ajah",
+    "Gbagada",
+    "Magodo",
+    "Maryland"
+  ]
+}

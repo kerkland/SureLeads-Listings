@@ -55,7 +55,7 @@ export default async function ListingDetailPage({ params }: Props) {
   const ap      = agent?.agentProfile;
   const isVerified = listing.tier === 'VERIFIED';
   const reconfirmLabel = daysAgo(listing.lastReconfirmedAt);
-  const hasVideo = listing.videoWalkthrough?.cloudinaryUrl && listing.videoWalkthrough.status === 'APPROVED';
+  const hasVideo = listing.videoWalkthrough?.cloudinaryPublicId && listing.videoWalkthrough.status === 'APPROVED';
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -134,7 +134,7 @@ export default async function ListingDetailPage({ params }: Props) {
                 </svg>
                 <p className="text-sm font-medium text-sl-slate-900">Video walkthrough</p>
               </div>
-              <VideoWalkthroughPlayer url={listing.videoWalkthrough.cloudinaryUrl} />
+              <VideoWalkthroughPlayer youtubeId={listing.videoWalkthrough.cloudinaryPublicId} />
             </div>
           )}
 

@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react';
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
 interface Walkthrough {
-  id:           string;
-  cloudinaryUrl: string;
-  status:       string;
-  uploadedAt:   string;
+  id:                string;
+  cloudinaryUrl:     string;
+  cloudinaryPublicId: string; // YouTube video ID
+  status:            string;
+  uploadedAt:        string;
   listing: {
     id:    string;
     title: string;
@@ -99,10 +100,22 @@ export default function VideoWalkthroughsPage() {
                   </p>
                 </div>
 
-                {/* Video */}
-                <video controls className="w-full max-h-80 bg-sl-slate-900" src={item.cloudinaryUrl}>
-                  Your browser does not support video playback.
-                </video>
+                {/* YouTube embed */}
+                <div className="relative w-full bg-sl-slate-900" style={{ paddingBottom: '56.25%' }}>
+                  {item.cloudinaryPublicId ? (
+                    <iframe
+                      className="absolute inset-0 w-full h-full"
+                      src={`https://www.youtube.com/embed/${item.cloudinaryPublicId}?rel=0&modestbranding=1`}
+                      title={item.listing.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-sl-slate-500 text-sm">
+                      No video ID available
+                    </div>
+                  )}
+                </div>
 
                 {/* Actions */}
                 <div className="px-5 py-4 flex flex-col gap-3">

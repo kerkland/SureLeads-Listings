@@ -2,6 +2,32 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 
+/* ─── CSV export ─────────────────────────────────────────────────────────── */
+
+function exportAgentsCSV(agents: AgentRow[]) {
+  const headers = ['ID', 'Name', 'Phone', 'Agency', 'City', 'Plan', 'Credibility Score', 'Credibility Tier', 'Listings', 'Verified', 'Suspended'];
+  const rows = agents.map((a) => [
+    a.id,
+    `"${a.fullName}"`,
+    a.phone,
+    `"${a.agencyName ?? ''}"`,
+    a.primaryCity,
+    a.subscriptionTier,
+    a.credibilityScore,
+    a.credibilityTier,
+    a.listingCount,
+    a.isVerifiedBadge ? 'Yes' : 'No',
+    a.isSuspended     ? 'Yes' : 'No',
+  ].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = `agents-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
 interface AgentRow {
@@ -195,14 +221,28 @@ export default function AdminAgentsPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
 
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold text-sl-green-500 uppercase tracking-widest mb-1">
-          Admin console
-        </p>
-        <h1 className="text-2xl font-bold text-sl-slate-900">Agents</h1>
-        <p className="text-sm text-sl-slate-500 mt-0.5">
-          Manage agent accounts, credibility, and verification status
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-xs font-semibold text-sl-green-500 uppercase tracking-widest mb-1">
+            Admin console
+          </p>
+          <h1 className="text-2xl font-bold text-sl-slate-900">Agents</h1>
+          <p className="text-sm text-sl-slate-500 mt-0.5">
+            Manage agent accounts, credibility, and verification status
+          </p>
+        </div>
+        <button
+          onClick={() => exportAgentsCSV(agents)}
+          disabled={agents.length === 0}
+          className="flex items-center gap-2 text-sm font-medium px-4 py-2 border border-sl-slate-200
+                     text-sl-slate-700 rounded-lg hover:bg-sl-slate-50 disabled:opacity-40 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export CSV
+        </button>
       </div>
 
       {/* Tabs */}

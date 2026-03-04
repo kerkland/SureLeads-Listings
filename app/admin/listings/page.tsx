@@ -52,6 +52,34 @@ const STATUS_CHIP: Record<string, string> = {
   RENTED:                 'bg-blue-50 text-blue-600',
 };
 
+/* ─── CSV export ─────────────────────────────────────────────────────────── */
+
+function exportCSV(listings: ListingRow[]) {
+  const headers = ['ID', 'Title', 'Agent', 'Agency', 'City', 'Area', 'Type', 'Beds', 'Rent/yr (₦)', 'Tier', 'Status', 'Flagged', 'Suspicious'];
+  const rows = listings.map((l) => [
+    l.id,
+    `"${l.title.replace(/"/g, '""')}"`,
+    `"${l.agent.fullName}"`,
+    `"${l.agent.agentProfile?.agencyName ?? ''}"`,
+    l.city,
+    l.area,
+    l.propertyType,
+    l.bedrooms,
+    Math.round(Number(l.rentPerYear) / 100),
+    l.tier,
+    l.status,
+    l.isAdminFlagged ? 'Yes' : 'No',
+    l.isSuspicious   ? 'Yes' : 'No',
+  ].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = `listings-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ─── Sub-components ─────────────────────────────────────────────────────── */
 
 function Chip({ label, cls }: { label: string; cls: string }) {
@@ -74,11 +102,15 @@ export default function AdminListingsPage() {
   // Inline force-hide form state
   const [hideTarget,  setHideTarget]  = useState<string | null>(null); // listingId
   const [hideReason,  setHideReason]  = useState('');
+  // Bulk select state
+  const [selected,    setSelected]    = useState<Set<string>>(new Set());
+  const [bulkBusy,    setBulkBusy]    = useState(false);
 
   const limit = 25;
 
   const load = useCallback(() => {
     setLoading(true);
+    setSelected(new Set()); // clear selection on load
     fetch(`/api/admin/listings?filter=${filter}&page=${page}&limit=${limit}`)
       .then((r) => r.json())
       .then((j) => {
@@ -94,6 +126,23 @@ export default function AdminListingsPage() {
 
   /* Reset page when filter changes */
   const changeFilter = (f: Filter) => { setFilter(f); setPage(1); };
+
+  /* ── Select helpers ── */
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === listings.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(listings.map((l) => l.id)));
+    }
+  };
 
   /* ── Actions ── */
   async function toggleFlag(l: ListingRow) {
@@ -129,6 +178,22 @@ export default function AdminListingsPage() {
     load();
   }
 
+  /* ── Bulk hide ── */
+  async function bulkHide() {
+    if (!selected.size) return;
+    setBulkBusy(true);
+    const ids = Array.from(selected);
+    await Promise.all(ids.map((id) =>
+      fetch(`/api/admin/listings/${id}/force-hide`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ reason: 'Bulk hide by admin' }),
+      })
+    ));
+    setBulkBusy(false);
+    load();
+  }
+
   const pages = Math.ceil(total / limit);
 
   const TABS: { label: string; value: Filter }[] = [
@@ -138,19 +203,68 @@ export default function AdminListingsPage() {
     { label: 'Hidden',          value: 'hidden'     },
   ];
 
+  const allSelected    = listings.length > 0 && selected.size === listings.length;
+  const someSelected   = selected.size > 0 && !allSelected;
+  const selectedListing = listings.filter((l) => selected.has(l.id));
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
 
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold text-sl-green-500 uppercase tracking-widest mb-1">
-          Admin console
-        </p>
-        <h1 className="text-2xl font-bold text-sl-slate-900">Listings</h1>
-        <p className="text-sm text-sl-slate-500 mt-0.5">
-          Review, flag, hide, and manage listing tiers
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-xs font-semibold text-sl-green-500 uppercase tracking-widest mb-1">
+            Admin console
+          </p>
+          <h1 className="text-2xl font-bold text-sl-slate-900">Listings</h1>
+          <p className="text-sm text-sl-slate-500 mt-0.5">
+            Review, flag, hide, and manage listing tiers
+          </p>
+        </div>
+        <button
+          onClick={() => exportCSV(listings)}
+          disabled={listings.length === 0}
+          className="flex items-center gap-2 text-sm font-medium px-4 py-2 border border-sl-slate-200
+                     text-sl-slate-700 rounded-lg hover:bg-sl-slate-50 disabled:opacity-40 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export CSV
+        </button>
       </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 bg-sl-slate-800 text-white rounded-xl px-4 py-3 mb-4 flex-wrap">
+          <span className="text-sm font-medium">
+            {selected.size} listing{selected.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={() => exportCSV(selectedListing)}
+            className="text-xs font-medium px-3 py-1.5 border border-sl-slate-500 rounded-lg
+                       hover:bg-sl-slate-700 transition-colors"
+          >
+            Export selected
+          </button>
+          <button
+            disabled={bulkBusy}
+            onClick={bulkHide}
+            className="text-xs font-medium px-3 py-1.5 bg-red-600 rounded-lg
+                       hover:bg-red-700 disabled:opacity-50 transition-colors"
+          >
+            {bulkBusy ? 'Hiding…' : `Hide ${selected.size} listing${selected.size !== 1 ? 's' : ''}`}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-xs text-sl-slate-400 hover:text-white transition-colors px-2"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-sl-slate-200 mb-6 overflow-x-auto">
@@ -180,6 +294,17 @@ export default function AdminListingsPage() {
           <table className="w-full text-sm">
             <thead className="bg-sl-slate-50 border-b border-sl-slate-200">
               <tr>
+                {/* Select all checkbox */}
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-sl-slate-300 text-sl-green-600
+                               focus:ring-sl-green-400 cursor-pointer"
+                  />
+                </th>
                 <th className="text-left text-xs font-semibold text-sl-slate-500 px-4 py-3">Title / Agent</th>
                 <th className="text-left text-xs font-semibold text-sl-slate-500 px-3 py-3">City</th>
                 <th className="text-left text-xs font-semibold text-sl-slate-500 px-3 py-3">Type</th>
@@ -194,7 +319,7 @@ export default function AdminListingsPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-sl-slate-100 rounded animate-pulse" />
                       </td>
@@ -203,21 +328,33 @@ export default function AdminListingsPage() {
                 ))
               ) : listings.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-16 text-sl-slate-400 text-sm">
+                  <td colSpan={9} className="text-center py-16 text-sl-slate-400 text-sm">
                     No listings match this filter
                   </td>
                 </tr>
               ) : (
                 listings.map((l) => {
-                  const isBusy      = busy === l.id;
+                  const isBusy       = busy === l.id;
+                  const isSelected   = selected.has(l.id);
                   const showHideForm = hideTarget === l.id;
                   return (
                     <React.Fragment key={l.id}>
                     <tr
                       className={`hover:bg-sl-slate-50 transition-colors ${
                         l.isSuspicious ? 'border-l-4 border-l-amber-400' : ''
-                      }`}
+                      } ${isSelected ? 'bg-sl-green-50/50' : ''}`}
                     >
+                      {/* Row checkbox */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(l.id)}
+                          className="w-4 h-4 rounded border-sl-slate-300 text-sl-green-600
+                                     focus:ring-sl-green-400 cursor-pointer"
+                        />
+                      </td>
+
                       {/* Title / Agent */}
                       <td className="px-4 py-3 max-w-xs">
                         <p className="font-medium text-sl-slate-900 truncate">{l.title}</p>
@@ -347,7 +484,7 @@ export default function AdminListingsPage() {
                     {/* Inline force-hide form */}
                     {showHideForm && (
                       <tr>
-                        <td colSpan={8} className="px-4 pb-3 pt-1 bg-sl-slate-50">
+                        <td colSpan={9} className="px-4 pb-3 pt-1 bg-sl-slate-50">
                           <div className="flex items-center gap-2 flex-wrap">
                             <input
                               type="text"
